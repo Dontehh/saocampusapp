@@ -1,0 +1,458 @@
+[
+  {
+    "clubName": "Digi Girls",
+    "boardMembers": {
+      "Spring 2023": {
+        "Mentors": "Imane Fouad, Malak Azeba, Roukhaya Diouf"
+      }
+    },
+    "events": {
+      "Summer 2022": [
+        "Business Model Canvas Session",
+        "Ideation Session",
+        "Conducting surveys in Morocco",
+        "Need Identification Workshop"
+      ],
+      "Spring 2023": [
+        "Participation in the 7th edition of MUN AZOR",
+        "Brainstorming Sessions",
+        "Ramadan Meetings",
+        "Business Model Canvas Session"
+      ],
+      "Summer 2023": [
+        "Regional Competition",
+        "National Celebration"
+      ],
+      "Spring 2024": [
+        "DigiGirlz x Women in STEM panel"
+      ],
+      "Fall 2024": [
+        "Social innovation workshop",
+        "Discussion about: Quantifying Strength in Sports",
+        "A talk: Exploring the future of AI dating apps",
+        "Workshop: Design thinking workshop"
+      ],
+      "Spring 2025": [
+        "Design thinking workshop",
+        "Hackathon smart zone 2025",
+        "Drone tech workshop",
+        "Drone tehcnology and applications"
+      ],
+      "Summer 2025": [
+        "Discussions about Machine Learning"
+      ]
+    }
+  },
+  {
+    "clubName": "TEDx",
+    "boardMembers": {
+      "Fall 2025": {
+        "President": "Hiba Cerhane",
+        "Vice-President": "Safaa Loufanfi",
+        "Treasurer": "Yassine Qarfaoui",
+        "General Secretary": "Yasser Benheddi"
+      },
+      "Spring 2026": {
+        "President": "Hiba Cerhane",
+        "Vice-President": "Hind Cherkani",
+        "Treasurer": "Hafsa Omary Alaoui",
+        "General Secretary": "Nour Laghzal"
+      }
+    },
+    "events": {
+      "Fall 2025": [
+        "Conference",
+        "Workshop"
+      ],
+      "Spring 2025": [
+        "Talk with Yassine Sadki",
+        "Conference"
+      ]
+    }
+  },
+  {
+    "clubName": "TECOM",
+    "boardMembers": {
+      "Spring 2024": {
+        "President": "Younes El Oufir",
+        "Vice-President": "Meryem Oulaya Chaayb",
+        "Treasurer": "Yasmine Sadik",
+        "General Secretary": "Yasmine Sadik"
+      },
+      "Fall 2024": {
+        "President": "Younes El Oufir",
+        "Vice-President": "Mohamed Ait Essiba",
+        "Treasurer": "Yasmine Sadik",
+        "General Secretary": "Mouad Zemzoumi"
+      },
+      "Spring 2025": {
+        "President": "Younes El Oufir",
+        "Vice-President": "Mohamed Ait Essiba",
+        "Treasurer": "Yasmine Sadik",
+        "General Secretary": "Mouad Zemzoumi"
+      },
+      "Summer 2025": {
+        "President": "Younes El Oufir",
+        "Vice-President": "Mohamed Ait Essiba",
+        "Treasurer": "Yasmine Sadik",
+        "General Secretary": "Mouad Zemzoumi"
+      },
+      "Fall 2025": {
+        "President": "Younes El Oufir",
+        "Vice-President": "Mohamed Ait Essiba",
+        "Treasurer": "Yasmine Sadik",
+        "General Secretary": "Mouad Zemzoumi"
+      },
+      "Spring 2026": {
+        "President": "Younes El Oufir",
+        "Vice-President": "Mohamed Ait Essiba",
+        "Treasurer": "Yasmine Sadik",
+        "General Secretary": "Mouad Zemzoumi"
+      }
+    },
+    "events": {
+      "Spring 2024": [
+        "Microsoft Conference at Beni Mellal",
+        "NASA Guest speaker online",
+        "Weekly technobreak"
+      ],
+      "Fall 2024": [
+        "Google DEVFEST Hackathon",
+        "Robotics Classes"
+      ],
+      "Spring 2025": [
+        "TECH4impact: ALX Morocco",
+        "GITEX Africa 2025"
+      ],
+      "Summer 2025": [
+        "ALX Volunteers Ceremony",
+        "TECOM Web Development Bootcamp"
+      ],
+      "Fall 2025": [
+        "Big Data Analytics talk with Dr. Hanaa Talei",
+        "Representatives at \"Le Village Numérique\" event"
+      ],
+      "Spring 2026": [
+        "AI Bootcalmp",
+        "Community Iftar",
+        "Representatives at \"Le Village Numérique\" event"
+      ]
+    }
+  },
+  {
+    "clubName": "AUI Academy",
+    "boardMembers": {
+      "Spring 2025": {
+        "President": "Mohammed Amine Rourrou",
+        "Vice-President": "Yassine Benomar",
+        "Conductor": "Hassan Akkaoui",
+        "Advisor": "Oussama Oukassou"
+      },
+      "Summer 2025": {
+        "President": "Youssef Takieddine",
+        "Vice-President": "Ahmed Zidani",
+        "Conductor": "Tasnim Sekakri",
+        "Advisor": "Rania Khaoudane"
+      },
+      "Fall 2025": {
+        "President": "Rania Kabel",
+        "Vice-President": "Nada El Younoussi",
+        "Conductor": "Yasmine Sadik",
+        "Advisor": "Ahmed Zidani"
+      },
+      "Spring 2026": {
+        "President": "Rania Kabel",
+        "Vice-President": "Nada El Younoussi",
+        "Conductor": "Imane Dehane",
+        "Advisor": "Imane Mouchamiss"
+      }
+    },
+    "events": {
+      "Spring 2025": [
+        "Workshops"
+      ],
+      "Summer 2025": [
+        "Workshops",
+        "Weekly Classes"
+      ],
+      "Fall 2025": [
+        "Workshops",
+        "Weekly Classes"
+      ],
+      "Spring 2026": [
+        "Weekly Tutoring classes in Azrou and Al Arz",
+        "2 Caravanes"
+      ]
+    }
+  },
+  {
+    "clubName": "MUN",
+    "boardMembers": {
+      "Fall 2023": {
+        "President": "Chama Bechouikh",
+        "Vice-President": "Aya Ennahid",
+        "Treasurer": "Aya Abouelhouda",
+        "General Secretary": "Douaa Boushab"
+      },
+      "Spring 2024": {
+        "President": "Chama Bechouikh",
+        "Vice-President": "Aya Ennahid",
+        "Treasurer": "Douaa Boushab",
+        "General Secretary": "Nour Laghzal"
+      },
+      "Fall 2024": {
+        "President": "Nour Laghzal",
+        "Vice-President": "Yasmine Abendag",
+        "Treasurer": "Youssef El Fadil",
+        "General Secretary": "Meriem Bourichi"
+      },
+      "Spring 2025": {
+        "President": "Nour Laghzal",
+        "Vice-President": "Yasmine Abendag",
+        "Treasurer": "Youssef El Fadil",
+        "General Secretary": "Meriem Bourichi"
+      },
+      "Summer 2025": {
+        "President": "Nour Laghzal",
+        "Vice-President": "Yasmine Abendag",
+        "Treasurer": "Youssef El Fadil",
+        "General Secretary": "Meriem Bourichi"
+      },
+      "Fall 2025": {
+        "President": "Yasmine Abdendag",
+        "Vice-President": "Ines Belahrach",
+        "Treasurer": "Hajar El Yahyaoui",
+        "General Secretary": "Hiba"
+      },
+      "Spring 2026": {
+        "President": "Seddik Ibnou Khaldoune",
+        "Vice-President": "Fatim Ezzahra El Mansouri",
+        "Treasurer": "Rayan Boufares",
+        "General Secretary": "Ghita Ansari"
+      }
+    },
+    "events": {
+      "Spring 2024": [
+        "Istanbul MUN",
+        "AGORA MUN in Rabat",
+        "Fundraising Valentine's",
+        "Training"
+      ],
+      "Fall 2024": [
+        "Qatar MUN",
+        "4 Fundraisings",
+        "Trainings",
+        "Simulations",
+        "Marrakech MUN",
+        "Coucil event with E+E",
+        "16 Days of Activism"
+      ],
+      "Spring 2025": [
+        "AUI MUN 12th edition",
+        "Trainings",
+        "Simulations",
+        "2 fundraisings",
+        "FMPR MUN in Rabat"
+      ],
+      "Fall 2025": [
+        "Staff Ceremony",
+        "Marrakech Conference",
+        "Trainings"
+      ],
+      "Spring 2026": [
+        "Simulations",
+        "Trainings"
+      ]
+    }
+  },
+  {
+    "clubName": "Debate Club",
+    "boardMembers": {
+      "Spring 2026": {
+        "President": "Chaimae Kassir",
+        "Vice-President": "Sami Amine",
+        "Treasurer": "Ahmed Amine Elmrini",
+        "General Secretary": "Riad Stitou"
+      }
+    },
+    "events": {
+      "Spring 2026": [
+        "War of Words",
+        "Change My Mind"
+      ]
+    }
+  },
+  {
+    "clubName": "ACM",
+    "boardMembers": {
+      "Spring 2026": {
+        "President": "Hamza Berahma",
+        "Vice-President": "Jihane Erraji",
+        "Treasurer": "Amr Ghazali",
+        "General Secretary": "NA",
+        "Advisor": "Hanae Talei"
+      }
+    },
+    "events": {
+      "Spring 2026": [
+        "3 Workshops",
+        "Talk"
+      ]
+    }
+  },
+  {
+    "clubName": "Astronomy",
+    "boardMembers": {
+      "Spring 2026": {
+        "President": "Ilyasse Bellarbi",
+        "Vice-President": "Khawla Goubi",
+        "Treasurer": "Sara Benslimane",
+        "General Secretary": "Hiba Benlkaid",
+        "Advisor": "Hassan Deghmaoui"
+      }
+    },
+    "events": {
+      "Spring 2026": [
+        "Conference ENSA Fes",
+        "Stagrazing",
+        "Collab with Cinematic Corner"
+      ]
+    }
+  },
+  {
+    "clubName": "Robotics Club",
+    "boardMembers": {
+      "Spring 2026": {
+        "President": "Ouajahad Filali Ahmed",
+        "Vice-President": "Mohammed Rayane Slaoui Hmouda",
+        "Treasurer": "Mahmoud Garwallane",
+        "General Secretary": "Rania Ettair",
+        "Advisor": "Sheikh Naeem Nissar"
+      }
+    },
+    "events": {
+      "Spring 2026": [
+        "Hackathon",
+        "3D Printing"
+      ]
+    }
+  },
+  {
+    "clubName": "Environmental Club",
+    "boardMembers": {
+      "Spring 2026": {
+        "President": "Hajar Aakouk",
+        "Vice-President": "Nouhaila Ossafi",
+        "Treasurer": "Hiba Kamar",
+        "General Secretary": "Sara Bouriaba"
+      }
+    },
+    "events": {
+      "Spring 2026": [
+        "Garbage Collection",
+        "Pepiniere event"
+      ]
+    }
+  },
+  {
+    "clubName": "WhiteOPS Club",
+    "boardMembers": {
+      "Spring 2026": {
+        "President": "Omar Mouline",
+        "Vice-President": "Ihab El Bani",
+        "Treasurer": "Amine Ilyas",
+        "General Secretary": "Riad Stitou"
+      }
+    },
+    "events": {
+      "Spring 2026": [
+        "Treasure Hunt",
+        "Online Competition",
+        "Classes"
+      ]
+    }
+  },
+  {
+    "clubName": "LinkUP Club",
+    "boardMembers": {
+      "Spring 2026": {
+        "President": "Mohamed Amine Benallou",
+        "Vice-President": "Salma Bouzoubaa",
+        "Treasurer": "Ahmed Amine Elmrini",
+        "General Secretary": "Kawtar Ebndaoud"
+      }
+    },
+    "events": {
+      "Spring 2026": [
+        "Speed Friending"
+      ]
+    }
+  },
+  {
+    "clubName": "Mindshift",
+    "boardMembers": {
+      "Spring 2026": {
+        "President": "Hiba Chahd Rakhdoune",
+        "Vice-President": "Rim Mejjane",
+        "Treasurer": "Khadija Anbok",
+        "General Secretary": "Aya Gourayni"
+      }
+    },
+    "events": {
+      "Spring 2026": [
+        "CV Workshop"
+      ]
+    }
+  },
+  {
+    "clubName": "NeXtGEm Business Club",
+    "boardMembers": {
+      "Spring 2026": {
+        "President": "Adam Mazgoure",
+        "Vice-President": "Yahya El Harchioui Mehdi",
+        "Treasurer": "Nadir Amerniss",
+        "General Secretary": "Mohamed Hatim Rachdi"
+      }
+    },
+    "events": {
+      "Spring 2026": [
+        "HEC Paris",
+        "Hackathon AUIxUM6P"
+      ]
+    }
+  },
+  {
+    "clubName": "Finance Club",
+    "boardMembers": {
+      "Spring 2026": {
+        "President": "Tasnim Moumou",
+        "Vice-President": "Azzelarab Gantare",
+        "Treasurer": "Jihad Ek Hajji Anouar",
+        "General Secretary": "Khadija Boumaiza"
+      }
+    },
+    "events": {
+      "Spring 2026": [
+        "Visite a la bourse de Casablanca",
+        "Guest Talk",
+        "Workshops"
+      ]
+    }
+  },
+  {
+    "clubName": "ABPSI Student Circle",
+    "boardMembers": {
+      "Spring 2026": {
+        "President": "Abdullah Salim Canoon",
+        "Vice-President": "Fadila Kabaj",
+        "Treasurer": "Maria Aitsalah",
+        "General Secretary": "Adam Harrak Serifi"
+      }
+    },
+    "events": {
+      "Spring 2026": [
+        "Masked Gala"
+      ]
+    }
+  }
+]
