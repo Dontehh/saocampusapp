@@ -85,6 +85,15 @@ final class DataStore: ObservableObject {
         buildDemoAccounts()
     }
 
+    /// Assigned university staff (outside SAO leadership) who need the
+    /// same view as admins. Kept as a small mock roster until the
+    /// backend provides a proper staff registry endpoint.
+    private static let seededStaff: [(name: String, email: String)] = [
+        (name: "Nadia Kadiri",     email: "n.kadiri@aui.ma"),
+        (name: "Karim Fettah",     email: "k.fettah@aui.ma"),
+        (name: "Sophia El Amrani", email: "s.amrani@aui.ma"),
+    ]
+
     private func seedUsers() {
         guard let team = clubsManager.latestTeam else {
             users = []
@@ -103,7 +112,50 @@ final class DataStore: ObservableObject {
                     email: Self.email(for: name),
                     role: .leader)
         }
-        users = admins + leaders
+        let staff = Self.seededStaff.enumerated().map { idx, member in
+            AppUser(id: "u-staff-\(idx + 1)",
+                    name: member.name,
+                    email: member.email,
+                    role: .staff)
+        }
+        users = admins + leaders + staff
+    }
+
+    /// Provision a general-student record for any @aui.ma email that
+    /// isn't already on the roster. Called by AuthService the first
+    /// time a student signs in.
+    @discardableResult
+    func provisionStudent(email rawEmail: String) -> AppUser {
+        let email = rawEmail.lowercased()
+        if let existing = users.first(where: { $0.email.lowercased() == email }) {
+            return existing
+        }
+        let student = AppUser(
+            id: "u-student-\(email)",
+            name: Self.displayName(from: email),
+            email: email,
+            role: .student
+        )
+        users.append(student)
+        return student
+    }
+
+    /// Turn "j.smith@aui.ma" → "J. Smith" for the student's display name.
+    static func displayName(from email: String) -> String {
+        let local = email.split(separator: "@").first.map(String.init) ?? "Student"
+        let parts = local
+            .split(separator: ".", omittingEmptySubsequences: true)
+            .map(String.init)
+        guard !parts.isEmpty else { return "Student" }
+        if parts.count == 1 { return parts[0].capitalized }
+        // First token becomes "J." (single-letter initial keeps its dot),
+        // subsequent tokens get full capitalisation.
+        let head = parts.first!
+        let tail = parts.dropFirst().map { $0.capitalized }.joined(separator: " ")
+        let leading = head.count == 1
+            ? "\(head.uppercased())."
+            : head.capitalized
+        return "\(leading) \(tail)".trimmingCharacters(in: .whitespaces)
     }
 
     private func seedClubs() {
@@ -275,13 +327,14 @@ final class DataStore: ObservableObject {
         if let admin = users.first(where: { $0.role == .admin }) {
             picks.append((admin.email, "Administrator"))
         }
-        if let leaderA = users.first(where: { $0.role == .leader }) {
-            picks.append((leaderA.email, "Event Leader"))
+        if let leader = users.first(where: { $0.role == .leader }) {
+            picks.append((leader.email, "Event Leader"))
         }
-        if let leaderB = users.last(where: { $0.role == .leader }),
-           leaderB.email != picks.last?.0 {
-            picks.append((leaderB.email, "Event Leader"))
+        if let staff = users.first(where: { $0.role == .staff }) {
+            picks.append((staff.email, "Assigned Staff"))
         }
+        // Any un-rostered @aui.ma email is auto-provisioned as a student.
+        picks.append(("student@aui.ma", "Student (auto)"))
         demoAccounts = picks
     }
 

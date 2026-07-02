@@ -10,8 +10,17 @@ import Foundation
 // MARK: - Users
 
 enum UserRole: String, Codable, CaseIterable, Hashable {
+    /// SAO administrators — full read/write access to every screen.
     case admin
+    /// SAO event leaders — run assigned events, generate check-in QRs,
+    /// file post-event debriefs.
     case leader
+    /// Assigned university staff who need the same read/write surface
+    /// as an admin (faculty coordinators, registrar liaisons, etc.).
+    case staff
+    /// General AUI students — read-only browsing of on-campus events
+    /// and clubs. Auto-provisioned on first sign-in.
+    case student
 }
 
 /// Roles are pre-assigned in the backend by staff. Users cannot change their own role.

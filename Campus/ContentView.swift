@@ -16,10 +16,15 @@ struct ContentView: View {
         Group {
             if let user = auth.currentUser {
                 switch user.role {
-                case .admin:
+                case .admin, .staff:
+                    // Staff share the admin surface — same data, same
+                    // read/write reach. The nav bar shows the current
+                    // user's name, so it's clear which role is signed in.
                     AdminRootView()
                 case .leader:
                     LeaderRootView()
+                case .student:
+                    StudentRootView()
                 }
             } else {
                 LoginView()

@@ -142,7 +142,7 @@ struct LoginView: View {
 
     private var demoAccountsCard: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Label("Demo Accounts (current SAO roster)",
+            Label("Demo Accounts (tap to auto-fill)",
                   systemImage: "info.circle.fill")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(Theme.accent)
@@ -156,6 +156,10 @@ struct LoginView: View {
                     .buttonStyle(.plain)
                 }
             }
+            Text("Any other @aui.ma email signs in as a general student.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .padding(.top, 4)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)

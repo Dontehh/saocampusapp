@@ -60,16 +60,21 @@ final class AuthService: ObservableObject {
     /// Hook for the production MSAL callback. Once you have a verified
     /// token + account, hand the upn over to this method and the rest
     /// of the app picks up seamlessly.
+    ///
+    /// Any pre-rostered account keeps its assigned role (admin, leader,
+    /// or staff). Anything else with a valid @aui.ma domain is
+    /// auto-provisioned as a general-student record — the app-wide
+    /// default for the campus community.
     func complete(authenticatedEmail email: String, in store: DataStore) {
         let normalized = email.lowercased()
         guard validate(email: normalized) else { return }
 
         if let match = store.users.first(where: { $0.email.lowercased() == normalized }) {
             currentUser = match
-            loginError  = nil
         } else {
-            loginError = "Account \(normalized) isn't registered with SAO. Ask staff to add you to the roster."
+            currentUser = store.provisionStudent(email: normalized)
         }
+        loginError = nil
     }
 
     func signOut() {
