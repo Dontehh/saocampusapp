@@ -219,7 +219,7 @@ struct StudentEventsView: View {
         VStack(spacing: 14) {
             ForEach(list) { event in
                 NavigationLink(value: event) {
-                    EventCardRow(event: event)
+                    StudentEventCardRow(event: event)
                 }
                 .buttonStyle(.plain)
                 .transition(.asymmetric(
@@ -255,6 +255,69 @@ struct StudentEventsView: View {
     }
 }
 
+// MARK: - Student-only card row
+
+/// A tighter card that shows only the info a student needs — event name,
+/// club, time, location, and the assigned SAO leader. Deliberately omits
+/// technical needs, debrief data, and attendance chips (those are
+/// operational details for admins/leaders).
+struct StudentEventCardRow: View {
+    @EnvironmentObject private var store: DataStore
+    let event: CampusEvent
+
+    private var clubName: String {
+        store.club(by: event.clubId)?.name ?? "—"
+    }
+
+    private var leaderName: String {
+        let leaders = store.leaders(for: event.id)
+        if leaders.isEmpty { return "TBA" }
+        return leaders.map(\.name).joined(separator: ", ")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(event.title)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    Text(clubName)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                StatusBadge(status: event.status)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 14) {
+                    Label(event.location, systemImage: "mappin.and.ellipse")
+                    Label(event.startTime.formatted(date: .abbreviated,
+                                                    time: .shortened),
+                          systemImage: "clock")
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+                HStack(spacing: 6) {
+                    Image(systemName: "person.badge.shield.checkmark.fill")
+                        .foregroundStyle(Theme.accent)
+                    Text("Led by \(leaderName)")
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(.tertiary)
+                }
+                .font(.caption.weight(.semibold))
+            }
+        }
+        .padding(18)
+        .glassCard(tint: Theme.accent.opacity(0.12), radius: 22)
+    }
+}
+
 // MARK: - Detail
 
 struct StudentEventDetailView: View {
@@ -281,8 +344,7 @@ struct StudentEventDetailView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     headerCard(event)
-                    attendanceCard(event)
-                    aboutCard(event)
+                    leaderCard(event)
                 }
                 .padding(20)
                 .animation(AppMotion.smooth, value: event.status)
@@ -308,59 +370,66 @@ struct StudentEventDetailView: View {
                     .softCard(radius: 16)
                 }
             }
-            DetailRow(icon: "mappin.and.ellipse", label: "Venue",
+            DetailRow(icon: "calendar.badge.checkmark",
+                      label: "Event",
+                      value: event.title)
+            DetailRow(icon: "person.3.fill",
+                      label: "Club",
+                      value: store.club(by: event.clubId)?.name ?? "—")
+            DetailRow(icon: "mappin.and.ellipse",
+                      label: "Location",
                       value: event.location)
-            DetailRow(icon: "clock", label: "Starts",
-                      value: event.startTime.formatted(date: .complete,
-                                                       time: .shortened))
-            DetailRow(icon: "clock.badge.checkmark", label: "Ends",
-                      value: event.endTime.formatted(date: .omitted,
-                                                     time: .shortened))
+            DetailRow(icon: "clock",
+                      label: "Time",
+                      value: timeRange(for: event))
         }
         .padding(20)
         .glassCard(tint: Theme.accent.opacity(0.15), radius: 24)
     }
 
-    private func attendanceCard(_ event: CampusEvent) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(event.status == .completed
-                     ? "Total Attendance"
-                     : "Live Attendance")
-                    .font(.caption.weight(.semibold))
+    @ViewBuilder
+    private func leaderCard(_ event: CampusEvent) -> some View {
+        let leaders = store.leaders(for: event.id)
+        VStack(alignment: .leading, spacing: 12) {
+            Label("SAO Leader",
+                  systemImage: "person.badge.shield.checkmark.fill")
+                .font(.headline)
+
+            if leaders.isEmpty {
+                Text("A SAO leader will be assigned soon.")
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
-                Text("\(store.attendanceCount(for: event.id))")
-                    .font(.system(size: 44, weight: .bold, design: .rounded))
-                    .foregroundStyle(Theme.accent)
-                    .contentTransition(.numericText())
-                Text(event.status == .completed
-                     ? "students checked in"
-                     : "students so far")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
+            } else {
+                VStack(spacing: 8) {
+                    ForEach(leaders) { leader in
+                        HStack(spacing: 12) {
+                            Image(systemName: "person.crop.circle.fill")
+                                .font(.title3)
+                                .foregroundStyle(Theme.accent)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(leader.name)
+                                    .font(.subheadline.weight(.semibold))
+                                Text(leader.email)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                        }
+                        .padding(12)
+                        .softCard(radius: 14)
+                    }
+                }
             }
-            Spacer()
-            Image(systemName: "person.3.sequence.fill")
-                .font(.system(size: 40))
-                .foregroundStyle(Theme.accent.opacity(0.35))
         }
-        .padding(22)
-        .glassCard(tint: Theme.accent.opacity(0.32), radius: 26)
+        .padding(20)
+        .glassCard(radius: 24)
     }
 
-    @ViewBuilder
-    private func aboutCard(_ event: CampusEvent) -> some View {
-        if let club = store.club(by: event.clubId) {
-            VStack(alignment: .leading, spacing: 10) {
-                Label("About the host", systemImage: "info.circle.fill")
-                    .font(.headline)
-                DetailRow(icon: "person.3.fill", label: "Club",
-                          value: club.name)
-                DetailRow(icon: "tag.fill", label: "Category",
-                          value: club.category)
-            }
-            .padding(20)
-            .glassCard(radius: 24)
-        }
+    private func timeRange(for event: CampusEvent) -> String {
+        let start = event.startTime.formatted(date: .complete,
+                                              time: .shortened)
+        let end = event.endTime.formatted(date: .omitted,
+                                          time: .shortened)
+        return "\(start) → \(end)"
     }
 }
