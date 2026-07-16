@@ -6,6 +6,9 @@
 //
 
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 @main
 struct CampusApp: App {
@@ -24,6 +27,25 @@ struct CampusApp: App {
         _dataStore    = StateObject(wrappedValue: store)
         _auth         = StateObject(wrappedValue: AuthService())
         _settings     = StateObject(wrappedValue: AppSettings())
+
+        Self.configureTabBarAppearance()
+    }
+
+    /// The default UITabBar chrome renders a solid grey slab that
+    /// occludes the SceneBackground on iOS. This wipes the resting AND
+    /// scroll-edge appearances so the bar is fully transparent — the
+    /// individual tab items keep their own Liquid Glass containers, and
+    /// scrolling content + orange blobs refract cleanly under them.
+    private static func configureTabBarAppearance() {
+        #if canImport(UIKit)
+        let appearance = UITabBarAppearance()
+        appearance.configureWithTransparentBackground()
+        appearance.backgroundColor  = .clear
+        appearance.backgroundEffect = nil
+        appearance.shadowColor      = .clear
+        UITabBar.appearance().standardAppearance   = appearance
+        UITabBar.appearance().scrollEdgeAppearance = appearance
+        #endif
     }
 
     var body: some Scene {

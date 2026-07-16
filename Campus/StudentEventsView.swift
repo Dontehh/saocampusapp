@@ -270,9 +270,10 @@ struct StudentEventCardRow: View {
     }
 
     private var leaderName: String {
-        let leaders = store.leaders(for: event.id)
-        if leaders.isEmpty { return "TBA" }
-        return leaders.map(\.name).joined(separator: ", ")
+        if let main = store.mainLeader(for: event.id) {
+            return main.name
+        }
+        return "TBA"
     }
 
     var body: some View {
@@ -389,7 +390,8 @@ struct StudentEventDetailView: View {
 
     @ViewBuilder
     private func leaderCard(_ event: CampusEvent) -> some View {
-        let leaders = store.leaders(for: event.id)
+        let leaders = store.leaders(for: event.id)  // already main-first
+        let mainId  = store.mainLeader(for: event.id)?.id
         VStack(alignment: .leading, spacing: 12) {
             Label("SAO Leader",
                   systemImage: "person.badge.shield.checkmark.fill")
@@ -402,27 +404,51 @@ struct StudentEventDetailView: View {
             } else {
                 VStack(spacing: 8) {
                     ForEach(leaders) { leader in
-                        HStack(spacing: 12) {
-                            Image(systemName: "person.crop.circle.fill")
-                                .font(.title3)
-                                .foregroundStyle(Theme.accent)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(leader.name)
-                                    .font(.subheadline.weight(.semibold))
-                                Text(leader.email)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                        }
-                        .padding(12)
-                        .softCard(radius: 14)
+                        studentLeaderRow(leader, isMain: leader.id == mainId)
                     }
                 }
             }
         }
         .padding(20)
         .glassCard(radius: 24)
+    }
+
+    private func studentLeaderRow(_ leader: AppUser, isMain: Bool) -> some View {
+        HStack(spacing: 12) {
+            ZStack(alignment: .bottomTrailing) {
+                Image(systemName: "person.crop.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(Theme.accent)
+                if isMain {
+                    Image(systemName: "star.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.white)
+                        .padding(3)
+                        .background(Theme.accent, in: Circle())
+                }
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(leader.name)
+                        .font(.subheadline.weight(.semibold))
+                    if isMain {
+                        Text("MAIN")
+                            .font(.caption2.weight(.bold))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Theme.accent.opacity(0.22), in: Capsule())
+                            .foregroundStyle(Theme.accent)
+                    }
+                }
+                Text(leader.email)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer()
+        }
+        .padding(12)
+        .softCard(radius: 14)
     }
 
     private func timeRange(for event: CampusEvent) -> String {

@@ -56,6 +56,38 @@ struct EmptyState: View {
     }
 }
 
+// MARK: - Catering card
+
+/// Compact card that surfaces the catering plan attached to an event.
+/// Rendered only when the event actually has a catering payload — call
+/// sites should guard on `event.catering != nil` before instantiating.
+struct CateringCard: View {
+    let catering: EventCatering
+
+    private var trimmedNotes: String {
+        catering.notes.trimmingCharacters(in: .whitespaces)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Catering", systemImage: "fork.knife")
+                .font(.headline)
+            if trimmedNotes.isEmpty {
+                Text("Catering requested — details to be finalized.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text(trimmedNotes)
+                    .font(.subheadline)
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(20)
+        .glassCard(radius: 24)
+    }
+}
+
 // MARK: - Detail row
 
 struct DetailRow: View {

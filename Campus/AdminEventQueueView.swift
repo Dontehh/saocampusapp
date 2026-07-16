@@ -180,20 +180,17 @@ struct AdminEventQueueView: View {
             )
             .padding(.top, 24)
         } else {
-            VStack(spacing: 12) {
+            // LazyVStack materialises rows only as they scroll into
+            // view. On a roster with 100+ events this is the difference
+            // between a butter-smooth scroll and a per-frame stutter.
+            LazyVStack(spacing: 12) {
                 ForEach(filteredEvents) { event in
                     NavigationLink(value: event) {
                         AdminEventRow(event: event)
                     }
                     .buttonStyle(.plain)
-                    .transition(.asymmetric(
-                        insertion: .scale(scale: 0.96).combined(with: .opacity),
-                        removal:   .opacity
-                    ))
                 }
             }
-            .animation(AppMotion.smooth,
-                       value: filteredEvents.map(\.id))
         }
     }
 }

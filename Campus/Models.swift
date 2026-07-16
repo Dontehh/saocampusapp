@@ -49,6 +49,14 @@ enum EventStatus: String, Codable, CaseIterable, Hashable {
     case completed
 }
 
+/// Optional catering plan attached to an event at creation time.
+/// Absent when the event doesn't include food service. `notes` is a
+/// free-form description of what's needed (menu, servings, dietary
+/// requirements, delivery timing, etc.).
+struct EventCatering: Codable, Hashable {
+    var notes: String
+}
+
 struct CampusEvent: Identifiable, Codable, Hashable {
     let id: String
     var title: String
@@ -58,14 +66,18 @@ struct CampusEvent: Identifiable, Codable, Hashable {
     var endTime: Date
     var technicalNeeds: [String]
     var status: EventStatus
+    var catering: EventCatering? = nil
 }
 
 // MARK: - Assignments
 
 struct EventAssignment: Identifiable, Codable, Hashable {
     var id: String { "\(eventId)::\(leaderId)" }
-    let eventId: String
+    let eventId:  String
     let leaderId: String
+    /// True for the single leader designated as the primary contact for
+    /// the event. There is at most one main per event.
+    var isMain:   Bool = false
 }
 
 // MARK: - Attendance

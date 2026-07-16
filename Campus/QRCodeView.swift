@@ -42,8 +42,8 @@ struct QRCodeView: View {
                     VStack(spacing: 22) {
                         qrImageView
                         captionBlock
-                        manualEntryCard
                         liveCountChip
+                        manualEntryCard
                     }
                     .padding(20)
                 }

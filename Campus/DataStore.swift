@@ -20,10 +20,55 @@ final class DataStore: ObservableObject {
 
     @Published private(set) var users:       [AppUser]          = []
     @Published private(set) var clubs:       [Club]             = []
-    @Published private(set) var events:      [CampusEvent]      = []
-    @Published private(set) var assignments: [EventAssignment]  = []
-    @Published private(set) var attendance:  [Attendance]       = []
-    @Published private(set) var debriefs:    [EventDebrief]     = []
+    @Published private(set) var events:      [CampusEvent]      = [] {
+        didSet { rebuildEventIndex() }
+    }
+    @Published private(set) var assignments: [EventAssignment]  = [] {
+        didSet { rebuildAssignmentIndex() }
+    }
+    @Published private(set) var attendance:  [Attendance]       = [] {
+        didSet { rebuildAttendanceIndex() }
+    }
+    @Published private(set) var debriefs:    [EventDebrief]     = [] {
+        didSet { rebuildDebriefIndex() }
+    }
+
+    // MARK: - Lookup indexes (rebuilt on each source mutation)
+    //
+    // These trade a small amount of memory for O(1) reads in the hot
+    // paths that every list view walks — attendance count per event,
+    // leader lookup, and debrief presence checks.
+
+    private var eventIndex:      [String: CampusEvent]     = [:]
+    private var attendanceIndex: [String: Int]             = [:]
+    private var assignmentIndex: [String: [EventAssignment]] = [:]
+    private var debriefIndex:    [String: EventDebrief]    = [:]
+    private var userIndex:       [String: AppUser]         = [:]
+
+    private func rebuildEventIndex() {
+        eventIndex = Dictionary(uniqueKeysWithValues: events.map { ($0.id, $0) })
+    }
+    private func rebuildAttendanceIndex() {
+        var counts: [String: Int] = [:]
+        counts.reserveCapacity(events.count)
+        for record in attendance {
+            counts[record.eventId, default: 0] += 1
+        }
+        attendanceIndex = counts
+    }
+    private func rebuildAssignmentIndex() {
+        var index: [String: [EventAssignment]] = [:]
+        for a in assignments {
+            index[a.eventId, default: []].append(a)
+        }
+        assignmentIndex = index
+    }
+    private func rebuildDebriefIndex() {
+        debriefIndex = Dictionary(uniqueKeysWithValues: debriefs.map { ($0.eventId, $0) })
+    }
+    private func rebuildUserIndex() {
+        userIndex = Dictionary(uniqueKeysWithValues: users.map { ($0.id, $0) })
+    }
 
     private let clubsManager: ClubsDataManager
 
@@ -83,15 +128,37 @@ final class DataStore: ObservableObject {
         seedEvents()
         seedAttendanceAndDebriefs()
         buildDemoAccounts()
+        // `didSet` fires on subsequent assignments but not on the
+        // initial value the property was declared with, so we rebuild
+        // every index once seeding is done.
+        rebuildUserIndex()
+        rebuildEventIndex()
+        rebuildAttendanceIndex()
+        rebuildAssignmentIndex()
+        rebuildDebriefIndex()
     }
 
+    /// Actual on-campus venues that SAO books events into. Exposed
+    /// publicly so CreateEventView (and any future venue filters) share
+    /// the same canonical list.
+    static let campusVenues: [String] = [
+        "Auditorium 4",
+        "Auditorium 8b",
+        "Zen Space",
+        "Event Room",
+        "SAO Lounge",
+        "Auditorium 17",
+        "Auditorium 16",
+    ]
+
     /// Assigned university staff (outside SAO leadership) who need the
-    /// same view as admins. Kept as a small mock roster until the
-    /// backend provides a proper staff registry endpoint.
+    /// same view as admins. Emails are provided verbatim by SAO — do not
+    /// derive from the name-to-email rule (they diverge for cases like
+    /// "Ayoub" which uses a two-letter prefix to disambiguate).
     private static let seededStaff: [(name: String, email: String)] = [
-        (name: "Nadia Kadiri",     email: "n.kadiri@aui.ma"),
-        (name: "Karim Fettah",     email: "k.fettah@aui.ma"),
-        (name: "Sophia El Amrani", email: "s.amrani@aui.ma"),
+        (name: "Ayoub Bounasser",   email: "ay.bounasser@aui.ma"),
+        (name: "Soumiya Bellabair", email: "s.bellabair@aui.ma"),
+        (name: "Farah Boukarmane",  email: "f.boukarmane@aui.ma"),
     ]
 
     private func seedUsers() {
@@ -170,11 +237,7 @@ final class DataStore: ObservableObject {
         let leaders = users.filter { $0.role == .leader }
         guard !leaders.isEmpty, !clubsManager.clubs.isEmpty else { return }
 
-        let venues = [
-            "Main Auditorium", "Hall A", "Hall B", "Black Box Theatre",
-            "Sports Hall", "Outdoor Amphitheatre", "Conference Room 1",
-            "Library Lecture Hall", "Lab 204", "Student Center",
-        ]
+        let venues = Self.campusVenues
         let techPool = [
             ["mics", "speakers"],
             ["mics", "speakers", "stage lighting"],
@@ -239,7 +302,9 @@ final class DataStore: ObservableObject {
                 let leader = leaders[leaderCursor % leaders.count]
                 leaderCursor += 1
                 seedAssignments.append(
-                    EventAssignment(eventId: eventId, leaderId: leader.id)
+                    EventAssignment(eventId: eventId,
+                                    leaderId: leader.id,
+                                    isMain: true)
                 )
             }
         }
@@ -375,23 +440,40 @@ final class DataStore: ObservableObject {
         return "\(local)@aui.ma"
     }
 
-    // MARK: - Lookups
+    // MARK: - Lookups (O(1) via the maintained indexes)
 
     func club(by id: String)    -> Club?         { clubs.first  { $0.id == id } }
-    func user(by id: String)    -> AppUser?      { users.first  { $0.id == id } }
-    func event(by id: String)   -> CampusEvent?  { events.first { $0.id == id } }
-    func debrief(for eventId: String) -> EventDebrief? {
-        debriefs.first { $0.eventId == eventId }
-    }
+    func user(by id: String)    -> AppUser?      { userIndex[id] }
+    func event(by id: String)   -> CampusEvent?  { eventIndex[id] }
+    func debrief(for eventId: String) -> EventDebrief? { debriefIndex[eventId] }
 
     func leaders() -> [AppUser] { users.filter { $0.role == .leader } }
 
-    func leaderIds(for eventId: String) -> [String] {
-        assignments.filter { $0.eventId == eventId }.map { $0.leaderId }
+    /// All leaders assigned to an event, main first.
+    func leaders(for eventId: String) -> [AppUser] {
+        let rows = assignmentIndex[eventId] ?? []
+        let ordered = rows.sorted { $0.isMain && !$1.isMain }
+        return ordered.compactMap { userIndex[$0.leaderId] }
     }
 
-    func leaders(for eventId: String) -> [AppUser] {
-        leaderIds(for: eventId).compactMap { user(by: $0) }
+    func leaderIds(for eventId: String) -> [String] {
+        leaders(for: eventId).map(\.id)
+    }
+
+    /// The primary/main leader assigned to an event, if one is designated.
+    /// Falls back to the first assigned leader when no main has been set.
+    func mainLeader(for eventId: String) -> AppUser? {
+        let rows = assignmentIndex[eventId] ?? []
+        if let mainRow = rows.first(where: { $0.isMain }),
+           let user = userIndex[mainRow.leaderId] {
+            return user
+        }
+        return rows.first.flatMap { userIndex[$0.leaderId] }
+    }
+
+    func isMainLeader(_ leaderId: String, for eventId: String) -> Bool {
+        (assignmentIndex[eventId] ?? [])
+            .contains { $0.leaderId == leaderId && $0.isMain }
     }
 
     func events(for leaderId: String) -> [CampusEvent] {
@@ -400,7 +482,7 @@ final class DataStore: ObservableObject {
     }
 
     func attendanceCount(for eventId: String) -> Int {
-        attendance.lazy.filter { $0.eventId == eventId }.count
+        attendanceIndex[eventId] ?? 0
     }
 
     // MARK: - Mutations
@@ -443,7 +525,8 @@ final class DataStore: ObservableObject {
                      startTime: Date,
                      endTime: Date,
                      technicalNeeds: [String],
-                     leaderId: String?) -> String {
+                     leaderId: String?,
+                     catering: EventCatering? = nil) -> String {
         let newId = "e-\(Int(Date().timeIntervalSince1970 * 1000))"
         let event = CampusEvent(
             id: newId,
@@ -453,22 +536,70 @@ final class DataStore: ObservableObject {
             startTime: startTime,
             endTime: endTime,
             technicalNeeds: technicalNeeds,
-            status: .ongoing
+            status: .ongoing,
+            catering: catering
         )
         events.insert(event, at: 0)
         if let leaderId, !leaderId.isEmpty {
-            assignments.append(EventAssignment(eventId: newId, leaderId: leaderId))
+            assignments.append(
+                EventAssignment(eventId: newId,
+                                leaderId: leaderId,
+                                isMain: true)
+            )
         }
         return newId
     }
 
-    func assign(leaderId: String, to eventId: String) {
-        guard !assignments.contains(where: { $0.eventId == eventId && $0.leaderId == leaderId }) else { return }
-        assignments.append(EventAssignment(eventId: eventId, leaderId: leaderId))
+    /// Assign a leader to an event. If `asMain` is true (or nothing else
+    /// is main yet) the leader is promoted to the primary contact and
+    /// any other main flag for that event is cleared.
+    func assign(leaderId: String, to eventId: String, asMain: Bool = false) {
+        guard !assignments.contains(where: {
+            $0.eventId == eventId && $0.leaderId == leaderId
+        }) else { return }
+
+        let hasMain    = assignments.contains { $0.eventId == eventId && $0.isMain }
+        let becomeMain = asMain || !hasMain
+
+        if becomeMain && hasMain {
+            demoteMain(for: eventId)
+        }
+        assignments.append(
+            EventAssignment(eventId: eventId,
+                            leaderId: leaderId,
+                            isMain: becomeMain)
+        )
+    }
+
+    /// Promote an existing assignment to main. Only works for leaders
+    /// already assigned to the event.
+    func setMainLeader(leaderId: String, for eventId: String) {
+        guard assignments.contains(where: {
+            $0.eventId == eventId && $0.leaderId == leaderId
+        }) else { return }
+        for i in assignments.indices where assignments[i].eventId == eventId {
+            assignments[i].isMain = (assignments[i].leaderId == leaderId)
+        }
     }
 
     func unassign(leaderId: String, from eventId: String) {
-        assignments.removeAll { $0.eventId == eventId && $0.leaderId == leaderId }
+        let wasMain = assignments.contains {
+            $0.eventId == eventId && $0.leaderId == leaderId && $0.isMain
+        }
+        assignments.removeAll {
+            $0.eventId == eventId && $0.leaderId == leaderId
+        }
+        if wasMain,
+           let idx = assignments.firstIndex(where: { $0.eventId == eventId }) {
+            assignments[idx].isMain = true
+        }
+    }
+
+    private func demoteMain(for eventId: String) {
+        for i in assignments.indices
+        where assignments[i].eventId == eventId && assignments[i].isMain {
+            assignments[i].isMain = false
+        }
     }
 
     func submitDebrief(_ debrief: EventDebrief) {

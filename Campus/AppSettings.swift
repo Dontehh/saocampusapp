@@ -27,3 +27,4 @@ final class AppSettings: ObservableObject {
         self.appearance = AppAppearance(rawValue: raw) ?? .system
     }
 }
+ 

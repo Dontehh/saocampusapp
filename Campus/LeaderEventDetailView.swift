@@ -40,6 +40,9 @@ struct LeaderEventDetailView: View {
                     attendanceCard(event)
                     actionButtons(event)
                     technicalChecklist(event)
+                    if let catering = event.catering {
+                        CateringCard(catering: catering)
+                    }
 
                     if let debrief = store.debrief(for: event.id) {
                         debriefCard(debrief)

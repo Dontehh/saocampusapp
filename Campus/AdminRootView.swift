@@ -44,6 +44,7 @@ struct AdminRootView: View {
                 .tag(Tab.analytics)
         }
         .tint(Theme.accent)
+        .fluentTabBarBackground()
         .animation(AppMotion.smooth, value: selection)
     }
 }

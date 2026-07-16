@@ -29,6 +29,7 @@ struct LeaderRootView: View {
                 .tag(Tab.clubs)
         }
         .tint(Theme.accent)
+        .fluentTabBarBackground()
         .animation(AppMotion.smooth, value: selection)
     }
 }

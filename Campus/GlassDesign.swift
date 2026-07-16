@@ -212,6 +212,21 @@ extension ButtonStyle where Self == GlassSecondaryButtonStyle {
     static var glassSecondary: GlassSecondaryButtonStyle { .init() }
 }
 
+// MARK: - Tab bar tuning
+
+extension View {
+    /// Removes the opaque slab under the system tab bar so the scrolling
+    /// glass cards and the SceneBackground blobs blur through it. Items
+    /// keep their own Liquid Glass container on iOS 26, so they stay
+    /// legible.
+    @ViewBuilder
+    func fluentTabBarBackground() -> some View {
+        self
+            .toolbarBackground(.hidden, for: .tabBar)
+            .toolbarBackground(.automatic, for: .navigationBar)
+    }
+}
+
 // MARK: - Scene wrapper
 
 /// Place this around a screen's content. It mounts the SceneBackground

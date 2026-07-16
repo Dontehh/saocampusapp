@@ -38,6 +38,9 @@ struct AdminEventDetailView: View {
                     statusActionsCard(event)
                     leadersCard(event)
                     technicalCard(event)
+                    if let catering = event.catering {
+                        CateringCard(catering: catering)
+                    }
                     attendanceCard(event)
 
                     if let debrief = store.debrief(for: event.id) {
@@ -163,18 +166,51 @@ struct AdminEventDetailView: View {
     }
 
     private func leaderRow(_ leader: AppUser, eventId: String) -> some View {
-        HStack {
-            Image(systemName: "person.crop.circle.fill")
-                .font(.title3)
-                .foregroundStyle(Theme.accent)
-            VStack(alignment: .leading) {
-                Text(leader.name)
-                    .font(.subheadline.weight(.semibold))
+        let isMain = store.isMainLeader(leader.id, for: eventId)
+        return HStack(spacing: 12) {
+            ZStack(alignment: .bottomTrailing) {
+                Image(systemName: "person.crop.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(Theme.accent)
+                if isMain {
+                    Image(systemName: "star.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.white)
+                        .padding(3)
+                        .background(Theme.accent, in: Circle())
+                }
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(leader.name)
+                        .font(.subheadline.weight(.semibold))
+                    if isMain {
+                        Text("MAIN")
+                            .font(.caption2.weight(.bold))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Theme.accent.opacity(0.22), in: Capsule())
+                            .foregroundStyle(Theme.accent)
+                            .transition(.scale.combined(with: .opacity))
+                    }
+                }
                 Text(leader.email)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
             Spacer()
+            if !isMain {
+                Button {
+                    store.setMainLeader(leaderId: leader.id, for: eventId)
+                } label: {
+                    Image(systemName: "star")
+                        .foregroundStyle(Theme.accent)
+                        .font(.title3)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Set \(leader.name) as main leader")
+            }
             Button {
                 store.unassign(leaderId: leader.id, from: eventId)
             } label: {
@@ -187,6 +223,7 @@ struct AdminEventDetailView: View {
         }
         .padding(14)
         .softCard(radius: 14)
+        .animation(AppMotion.snappy, value: isMain)
     }
 
     private func technicalCard(_ event: CampusEvent) -> some View {
