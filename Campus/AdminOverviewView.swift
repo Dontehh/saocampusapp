@@ -2,7 +2,8 @@
 //  AdminOverviewView.swift
 //  Campus
 //
-//  Landing tab for admins. Headline metric cards in orange + a quick chart.
+//  Editorial control-center. Uses a masthead + refined metric grid;
+//  chart is embedded inside the surface card with hairline dividers.
 //
 
 import SwiftUI
@@ -11,34 +12,35 @@ import Charts
 struct AdminOverviewView: View {
     @EnvironmentObject private var store: DataStore
 
-    private var totalEvents: Int { store.events.count }
+    private var totalEvents:    Int { store.events.count }
     private var totalAttendance: Int { store.attendance.count }
+    private var ongoingCount:   Int { store.events.filter { $0.status == .ongoing }.count }
+    private var completedCount: Int { store.events.filter { $0.status == .completed }.count }
 
     private var venueBreakdown: [(venue: String, count: Int)] {
         Dictionary(grouping: store.events, by: { $0.location })
             .map { (venue: $0.key, count: $0.value.count) }
             .sorted { $0.count > $1.count }
     }
-
-    private var mostActiveVenue: String {
-        venueBreakdown.first?.venue ?? "—"
-    }
+    private var mostActiveVenue: String { venueBreakdown.first?.venue ?? "—" }
 
     var body: some View {
         GlassScene {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    header
-                    metricsGrid
-                    quickChartCard
-                    statusBreakdownCard
+                LazyVStack(alignment: .leading, spacing: AppLayout.sectionGap) {
+                    masthead
+                    metrics
+                    statusPipeline
+                    chartCard
                 }
-                .padding(20)
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 48)
+                .contentFrame()
             }
             .scrollContentBackground(.hidden)
         }
-        .navigationTitle("Overview")
-        .largeNavTitle()
+        .navigationTitle("")
         .toolbar {
             ToolbarItem(placement: .trailingBar) { AccountMenu() }
         }
@@ -46,24 +48,27 @@ struct AdminOverviewView: View {
 
     // MARK: - Pieces
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("SAO Control Center")
-                .font(.title2.weight(.bold))
-            Text("Live snapshot across every club and event.")
-                .foregroundStyle(.secondary)
+    private var masthead: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Control Center").overlineStyle(Theme.accent)
+            Text("Overview")
+                .font(AppFont.display)
+                .foregroundStyle(Theme.ink)
+            Text("Every event, club and check-in — at a glance.")
+                .font(AppFont.body)
+                .foregroundStyle(Theme.inkMuted)
         }
     }
 
-    private var metricsGrid: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: 14)],
+    private var metrics: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 14)],
                   spacing: 14) {
             MetricCard(title: "Events Hosted",
                        value: "\(totalEvents)",
-                       icon:  "calendar.badge.checkmark")
+                       icon:  "calendar")
             MetricCard(title: "Student Attendance",
                        value: "\(totalAttendance)",
-                       icon:  "person.3.fill")
+                       icon:  "person.3")
             MetricCard(title: "Most Active Venue",
                        value: mostActiveVenue,
                        icon:  "mappin.and.ellipse",
@@ -71,60 +76,51 @@ struct AdminOverviewView: View {
         }
     }
 
-    private var quickChartCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Top Clubs by Turnout")
-                .font(.headline)
-            ClubBarChart(limit: 5)
-                .frame(height: 230)
+    private var statusPipeline: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            SectionHeader("Pipeline")
+            HStack(spacing: 12) {
+                pipelinePill(count: ongoingCount,
+                             label: "Ongoing",
+                             tint: Theme.accent)
+                pipelinePill(count: completedCount,
+                             label: "Completed",
+                             tint: Theme.positive)
+            }
+        }
+    }
+
+    private func pipelinePill(count: Int, label: String, tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("\(count)")
+                .font(AppFont.heroNumber)
+                .foregroundStyle(Theme.ink)
+                .monospacedDigit()
+                .contentTransition(.numericText())
+            HStack(spacing: 6) {
+                Circle().fill(tint).frame(width: 6, height: 6)
+                Text(label).font(AppFont.captionStrong)
+                    .foregroundStyle(Theme.inkMuted)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .surfaceCard()
+    }
+
+    private var chartCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Top Clubs").overlineStyle()
+                Spacer()
+                Text("By turnout")
+                    .font(AppFont.caption)
+                    .foregroundStyle(Theme.inkFaint)
+            }
+            ClubBarChart(limit: 5).frame(height: 220)
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard(radius: 24)
-    }
-
-    private var statusBreakdownCard: some View {
-        let assigned  = store.events.filter { $0.status == .ongoing   }.count
-        let completed = store.events.filter { $0.status == .completed }.count
-
-        return VStack(alignment: .leading, spacing: 12) {
-            Text("Status Pipeline")
-                .font(.headline)
-            HStack(spacing: 14) {
-                pillCard(title: "Ongoing",
-                         value: assigned,
-                         color: Theme.accent,
-                         systemImage: "calendar.badge.clock")
-                pillCard(title: "Completed",
-                         value: completed,
-                         color: Color.green,
-                         systemImage: "checkmark.seal.fill")
-            }
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard(radius: 24)
-    }
-
-    private func pillCard(title: String, value: Int,
-                          color: Color, systemImage: String) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: systemImage)
-                .font(.title3)
-                .foregroundStyle(.white)
-                .frame(width: 36, height: 36)
-                .background(color, in: RoundedRectangle(cornerRadius: 10))
-            VStack(alignment: .leading, spacing: 2) {
-                Text("\(value)")
-                    .font(.title3.weight(.bold))
-                Text(title)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .softCard(radius: 16)
+        .surfaceCard()
     }
 }

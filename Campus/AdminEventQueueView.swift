@@ -2,8 +2,8 @@
 //  AdminEventQueueView.swift
 //  Campus
 //
-//  Event Master Queue. Searchable + chip-filtered list of every event,
-//  with an inline "+ Create Event" entry point in the toolbar.
+//  Refined master queue. Editorial masthead, restrained filter chips,
+//  hairline-separated LazyVStack of rows for smooth scroll performance.
 //
 
 import SwiftUI
@@ -20,20 +20,18 @@ struct AdminEventQueueView: View {
         case ongoing   = "Ongoing"
         case completed = "Completed"
         var id: String { rawValue }
-
-        var systemImage: String {
-            switch self {
-            case .all:       return "tray.full.fill"
-            case .ongoing:   return "calendar.badge.clock"
-            case .completed: return "checkmark.seal.fill"
-            }
-        }
     }
 
-    private var allEvents: [CampusEvent] { store.events }
+    // MARK: - Derived
+
+    private var counts: (total: Int, ongoing: Int, completed: Int) {
+        let ongoing   = store.events.filter { $0.status == .ongoing   }.count
+        let completed = store.events.filter { $0.status == .completed }.count
+        return (store.events.count, ongoing, completed)
+    }
 
     private var filteredEvents: [CampusEvent] {
-        var list = allEvents
+        var list = store.events
         switch filter {
         case .all:       break
         case .ongoing:   list = list.filter { $0.status == .ongoing   }
@@ -50,45 +48,51 @@ struct AdminEventQueueView: View {
         return list.sorted { $0.startTime > $1.startTime }
     }
 
-    private var counts: (all: Int, upcoming: Int, completed: Int) {
-        let upcoming  = allEvents.filter { $0.status == .ongoing   }.count
-        let completed = allEvents.filter { $0.status == .completed }.count
-        return (allEvents.count, upcoming, completed)
-    }
+    // MARK: - Body
 
     var body: some View {
         GlassScene {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                LazyVStack(alignment: .leading, spacing: AppLayout.sectionGap) {
+                    masthead
                     summaryStrip
-                    filterChips
-                    eventList
+                    filterStrip
+                    if filteredEvents.isEmpty {
+                        EmptyState(icon: "magnifyingglass",
+                                   title: "Nothing matches",
+                                   subtitle: query.isEmpty
+                                        ? "Tap + to schedule a new event."
+                                        : "Try a different filter or search.")
+                    } else {
+                        eventList
+                    }
                 }
                 .padding(.horizontal, 20)
-                .padding(.bottom, 24)
-                .padding(.top, 4)
+                .padding(.top, 8)
+                .padding(.bottom, 48)
+                .contentFrame()
             }
             .scrollContentBackground(.hidden)
         }
-        .navigationTitle("Event Master Queue")
-        .largeNavTitle()
+        .navigationTitle("")
         .toolbar {
             ToolbarItem(placement: .trailingBar) {
                 Button {
                     showCreate = true
                 } label: {
-                    Label("Create", systemImage: "plus.circle.fill")
-                        .labelStyle(.iconOnly)
-                        .font(.title3)
-                        .foregroundStyle(Theme.accent)
+                    Image(systemName: "plus")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Theme.ink)
+                        .frame(width: 36, height: 36)
+                        .background(Theme.surface, in: Circle())
+                        .overlay(Circle().stroke(Theme.rule,
+                                                 lineWidth: AppLayout.hairline))
                 }
-                .accessibilityLabel("Create new event")
+                .accessibilityLabel("Create event")
             }
         }
         .searchableBar(text: $query, prompt: "Search events, clubs, venues")
-        .sheet(isPresented: $showCreate) {
-            CreateEventView()
-        }
+        .sheet(isPresented: $showCreate) { CreateEventView() }
         .navigationDestination(for: CampusEvent.self) { event in
             AdminEventDetailView(eventId: event.id)
         }
@@ -96,176 +100,135 @@ struct AdminEventQueueView: View {
 
     // MARK: - Pieces
 
+    private var masthead: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Master Queue").overlineStyle(Theme.accent)
+            Text("Events")
+                .font(AppFont.display)
+                .foregroundStyle(Theme.ink)
+        }
+    }
+
     private var summaryStrip: some View {
-        let c = counts
-        return HStack(spacing: 10) {
-            summaryPill(value: c.all,
-                        title: "Total",
-                        color: Theme.accent,
-                        icon: "tray.full.fill")
-            summaryPill(value: c.upcoming,
-                        title: "Upcoming",
-                        color: Color.blue,
-                        icon: "calendar.badge.clock")
-            summaryPill(value: c.completed,
-                        title: "Completed",
-                        color: Color.green,
-                        icon: "checkmark.seal.fill")
+        HStack(spacing: 12) {
+            summary("Total",     counts.total,     Theme.ink)
+            summary("Ongoing",   counts.ongoing,   Theme.accent)
+            summary("Completed", counts.completed, Theme.positive)
         }
     }
 
-    private func summaryPill(value: Int, title: String,
-                             color: Color, icon: String) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon)
-                .font(.callout)
-                .foregroundStyle(.white)
-                .frame(width: 30, height: 30)
-                .background(color, in: RoundedRectangle(cornerRadius: 8))
-            VStack(alignment: .leading, spacing: 0) {
-                Text("\(value)")
-                    .font(.title3.weight(.bold))
-                    .contentTransition(.numericText())
-                Text(title)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+    private func summary(_ label: String, _ value: Int, _ tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("\(value)")
+                .font(AppFont.statNumber)
+                .foregroundStyle(Theme.ink)
+                .monospacedDigit()
+                .contentTransition(.numericText())
+            HStack(spacing: 6) {
+                Circle().fill(tint).frame(width: 5, height: 5)
+                Text(label).font(AppFont.overline).tracking(1.2)
+                    .textCase(.uppercase)
+                    .foregroundStyle(Theme.inkMuted)
             }
-            Spacer(minLength: 0)
         }
-        .padding(12)
+        .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard(tint: color.opacity(0.18), radius: 16)
+        .surfaceCard(radius: 16)
     }
 
-    private var filterChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                ForEach(Filter.allCases) { option in
-                    let isOn = filter == option
-                    Button {
-                        withAnimation(AppMotion.snappy) {
-                            filter = option
-                        }
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: option.systemImage)
-                            Text(option.rawValue)
-                        }
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .glassCard(
-                            tint: isOn ? Theme.accent.opacity(0.6)
-                                       : Theme.accent.opacity(0.12),
-                            radius: 24
+    private var filterStrip: some View {
+        HStack(spacing: 8) {
+            ForEach(Filter.allCases) { option in
+                let isOn = filter == option
+                Button {
+                    withAnimation(AppMotion.snappy) { filter = option }
+                } label: {
+                    Text(option.rawValue)
+                        .font(AppFont.captionStrong)
+                        .foregroundStyle(isOn ? Color.white : Theme.ink)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(isOn ? Theme.accent : Theme.surface)
                         )
-                        .foregroundStyle(isOn ? Color.white : Color.primary)
-                    }
-                    .buttonStyle(.plain)
+                        .overlay(
+                            Capsule(style: .continuous)
+                                .stroke(isOn ? Color.clear : Theme.rule,
+                                        lineWidth: AppLayout.hairline)
+                        )
                 }
+                .buttonStyle(.plain)
             }
-            .padding(.vertical, 2)
+            Spacer()
         }
     }
 
-    @ViewBuilder
     private var eventList: some View {
-        if filteredEvents.isEmpty {
-            EmptyState(
-                icon: "magnifyingglass",
-                title: "No events match",
-                subtitle: query.isEmpty
-                    ? "Tap the + button to create one."
-                    : "Try a different search or filter."
-            )
-            .padding(.top, 24)
-        } else {
-            // LazyVStack materialises rows only as they scroll into
-            // view. On a roster with 100+ events this is the difference
-            // between a butter-smooth scroll and a per-frame stutter.
-            LazyVStack(spacing: 12) {
-                ForEach(filteredEvents) { event in
-                    NavigationLink(value: event) {
-                        AdminEventRow(event: event)
-                    }
-                    .buttonStyle(.plain)
+        LazyVStack(spacing: 12) {
+            ForEach(filteredEvents) { event in
+                NavigationLink(value: event) {
+                    AdminEventRow(event: event)
                 }
+                .buttonStyle(.plain)
             }
         }
     }
 }
 
+// MARK: - Row
+
 struct AdminEventRow: View {
     @EnvironmentObject private var store: DataStore
     let event: CampusEvent
 
+    private var clubName: String { store.club(by: event.clubId)?.name ?? "—" }
+    private var attendance: Int { store.attendanceCount(for: event.id) }
+    private var mainLeader: AppUser? { store.mainLeader(for: event.id) }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(event.title)
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                    if let club = store.club(by: event.clubId) {
-                        Text(club.name)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+            HStack {
+                Text(clubName).overlineStyle()
                 Spacer()
                 StatusBadge(status: event.status)
             }
-
-            Divider().padding(.vertical, 2)
-
-            HStack(spacing: 14) {
-                Label(event.location, systemImage: "mappin.and.ellipse")
-                Label(event.startTime.formatted(date: .abbreviated,
-                                                time: .shortened),
-                      systemImage: "clock")
+            Text(event.title)
+                .font(AppFont.heading)
+                .foregroundStyle(Theme.ink)
+                .lineLimit(2)
+            HStack(spacing: 16) {
+                meta(icon: "clock",
+                     text: event.startTime.formatted(date: .abbreviated,
+                                                     time: .shortened))
+                meta(icon: "mappin.and.ellipse", text: event.location)
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-
-            HStack(spacing: 14) {
-                HStack(spacing: 6) {
-                    Image(systemName: "person.crop.circle.badge.checkmark")
-                    Text("\(store.attendanceCount(for: event.id)) attended")
-                        .contentTransition(.numericText())
-                }
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Theme.accent)
-
-                if !event.technicalNeeds.isEmpty {
-                    Text("•")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                    Text(event.technicalNeeds.joined(separator: " · "))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-            }
-
-            let assignedLeaders = store.leaders(for: event.id)
-            if !assignedLeaders.isEmpty {
-                HStack(spacing: 6) {
-                    Image(systemName: "person.badge.shield.checkmark.fill")
-                        .foregroundStyle(Theme.accent)
-                        .font(.caption)
-                    Text(assignedLeaders.map(\.name).joined(separator: ", "))
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                }
-            } else {
-                Label("No leader assigned",
-                      systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.orange)
+            HStack(spacing: 12) {
+                meta(icon: "person.crop.circle",
+                     text: mainLeader?.name ?? "No leader assigned",
+                     tint: mainLeader == nil ? Theme.warning : Theme.inkMuted)
+                Spacer()
+                meta(icon: "person.3",
+                     text: "\(attendance)",
+                     tint: Theme.accent)
             }
         }
         .padding(18)
-        .glassCard(tint: Theme.accent.opacity(0.14), radius: 22)
+        .surfaceCard()
+        .contentShape(RoundedRectangle(cornerRadius: AppLayout.cardRadius,
+                                       style: .continuous))
+    }
+
+    private func meta(icon: String, text: String,
+                      tint: Color = Theme.inkMuted) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(tint)
+            Text(text)
+                .font(AppFont.caption)
+                .foregroundStyle(tint)
+                .lineLimit(1)
+        }
     }
 }

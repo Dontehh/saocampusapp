@@ -2,142 +2,108 @@
 //  AdminAnalyticsView.swift
 //  Campus
 //
-//  Swift Charts driven analytics: bar (clubs), line (trend), sector (venue).
-//  Each chart sits in its own card with title, subtitle, and a key metric chip.
+//  Refined charts. Each chart lives in a surface card with a small
+//  overline label and a single number annotation. Palette is limited to
+//  the accent + ink so charts feel considered rather than colorful.
 //
 
 import SwiftUI
 import Charts
 
-// MARK: - Tab container
-
 struct AdminAnalyticsView: View {
     @EnvironmentObject private var store: DataStore
-
-    @State private var didAppear = false
 
     var body: some View {
         GlassScene {
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    headline
-
+                LazyVStack(alignment: .leading, spacing: AppLayout.sectionGap) {
+                    masthead
                     ChartCard(
-                        title: "Top Clubs by Turnout",
-                        subtitle: "Total student check-ins per club",
-                        accent: "Top: \(topClubName)",
-                        icon: "trophy.fill"
-                    ) {
-                        ClubBarChart(limit: 6).frame(height: 280)
-                    }
-
+                        title: "Top Clubs",
+                        subtitle: "Total check-ins per club",
+                        accent: topClubName
+                    ) { ClubBarChart(limit: 6).frame(height: 260) }
                     ChartCard(
-                        title: "Attendance Trend",
-                        subtitle: "Daily QR check-ins across all events",
-                        accent: "\(store.attendance.count) scans",
-                        icon: "waveform.path.ecg"
-                    ) {
-                        AttendanceTrendChart().frame(height: 240)
-                    }
-
+                        title: "Attendance",
+                        subtitle: "Daily QR check-ins",
+                        accent: "\(store.attendance.count) total"
+                    ) { AttendanceTrendChart().frame(height: 220) }
                     ChartCard(
-                        title: "Events by Venue",
-                        subtitle: "Share of events hosted at each location",
-                        accent: "\(uniqueVenueCount) venues",
-                        icon: "mappin.circle.fill"
-                    ) {
-                        VenueSectorChart().frame(height: 320)
-                    }
+                        title: "Venues",
+                        subtitle: "Share of events by location",
+                        accent: "\(uniqueVenueCount) venues"
+                    ) { VenueSectorChart().frame(height: 260) }
                 }
-                .padding(20)
-                .opacity(didAppear ? 1 : 0)
-                .offset(y: didAppear ? 0 : 10)
-                .onAppear {
-                    withAnimation(.easeOut(duration: 0.35)) {
-                        didAppear = true
-                    }
-                }
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 48)
+                .contentFrame()
             }
             .scrollContentBackground(.hidden)
         }
-        .navigationTitle("Analytics")
-        .largeNavTitle()
+        .navigationTitle("")
     }
 
-    // MARK: - Header
-
-    private var headline: some View {
+    private var masthead: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Live insights across campus")
-                .font(.title3.weight(.semibold))
-            Text("Charts update instantly as new check-ins flow in.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            Text("Reports").overlineStyle(Theme.accent)
+            Text("Analytics")
+                .font(AppFont.display)
+                .foregroundStyle(Theme.ink)
         }
-        .padding(.bottom, 4)
     }
-
-    // MARK: - Helpers
 
     private var topClubName: String {
         let grouped = Dictionary(grouping: store.attendance) {
             store.event(by: $0.eventId)?.clubId ?? ""
         }
-        let topId = grouped
-            .max(by: { $0.value.count < $1.value.count })?.key ?? ""
+        let topId = grouped.max(by: { $0.value.count < $1.value.count })?.key ?? ""
         return store.club(by: topId)?.name ?? "—"
     }
-
     private var uniqueVenueCount: Int {
         Set(store.events.map(\.location)).count
     }
 }
 
-// MARK: - Chart Card wrapper
+// MARK: - Chart card
 
 struct ChartCard<Content: View>: View {
     let title: String
     let subtitle: String
     let accent: String
-    let icon: String
     @ViewBuilder var content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.headline)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title).overlineStyle()
                     Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(AppFont.caption)
+                        .foregroundStyle(Theme.inkMuted)
                 }
                 Spacer()
-                HStack(spacing: 6) {
-                    Image(systemName: icon)
-                    Text(accent)
-                }
-                .font(.caption.weight(.semibold))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .glassCard(tint: Theme.accent.opacity(0.22), radius: 14)
-                .foregroundStyle(Theme.accent)
+                Text(accent)
+                    .font(AppFont.captionStrong)
+                    .foregroundStyle(Theme.accent)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Theme.accentSoft,
+                                in: Capsule(style: .continuous))
             }
             content()
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard(radius: 24)
+        .surfaceCard()
     }
 }
 
-// MARK: - Bar chart: top clubs by turnout
+// MARK: - Charts
 
 struct ClubBarChart: View {
     @EnvironmentObject private var store: DataStore
     var limit: Int = 5
-
-    @State private var selectedClub: String?
 
     private struct Row: Identifiable {
         let id = UUID()
@@ -162,39 +128,31 @@ struct ClubBarChart: View {
                 x: .value("Turnout", row.turnout),
                 y: .value("Club", row.club)
             )
-            .foregroundStyle(
-                LinearGradient(colors: [Theme.accent,
-                                        Theme.accent.opacity(0.65)],
-                               startPoint: .leading, endPoint: .trailing)
-            )
-            .cornerRadius(8)
-            .opacity(selectedClub == nil || selectedClub == row.club ? 1 : 0.35)
+            .foregroundStyle(Theme.accent)
+            .cornerRadius(4)
             .annotation(position: .trailing) {
                 Text("\(row.turnout)")
-                    .font(.caption2.weight(.bold))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Theme.accent.opacity(0.15), in: Capsule())
-                    .foregroundStyle(Theme.accent)
+                    .font(AppFont.captionStrong)
+                    .monospacedDigit()
+                    .foregroundStyle(Theme.inkMuted)
             }
         }
         .chartXAxis {
             AxisMarks(values: .automatic(desiredCount: 4)) { _ in
-                AxisGridLine().foregroundStyle(.secondary.opacity(0.25))
-                AxisValueLabel().font(.caption2)
+                AxisGridLine().foregroundStyle(Theme.rule)
+                AxisValueLabel().font(AppFont.caption)
+                    .foregroundStyle(Theme.inkFaint)
             }
         }
         .chartYAxis {
             AxisMarks { _ in
-                AxisValueLabel().font(.caption.weight(.semibold))
+                AxisValueLabel().font(AppFont.captionStrong)
+                    .foregroundStyle(Theme.ink)
             }
         }
-        .animation(.spring(response: 0.45, dampingFraction: 0.85),
-                   value: rows.map(\.turnout))
+        .animation(AppMotion.gentle, value: rows.map(\.turnout))
     }
 }
-
-// MARK: - Line chart: attendance trend over time
 
 struct AttendanceTrendChart: View {
     @EnvironmentObject private var store: DataStore
@@ -217,51 +175,38 @@ struct AttendanceTrendChart: View {
 
     var body: some View {
         Chart(points) { p in
-            AreaMark(
-                x: .value("Date", p.date),
-                y: .value("Attendance", p.count)
-            )
-            .interpolationMethod(.catmullRom)
-            .foregroundStyle(
-                LinearGradient(colors: [Theme.accent.opacity(0.45),
-                                        Theme.accent.opacity(0.0)],
-                               startPoint: .top, endPoint: .bottom)
-            )
-
-            LineMark(
-                x: .value("Date", p.date),
-                y: .value("Attendance", p.count)
-            )
-            .interpolationMethod(.catmullRom)
-            .foregroundStyle(Theme.accent)
-            .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round))
-
-            PointMark(
-                x: .value("Date", p.date),
-                y: .value("Attendance", p.count)
-            )
-            .foregroundStyle(Theme.accent)
-            .symbolSize(48)
+            AreaMark(x: .value("Date", p.date),
+                     y: .value("Attendance", p.count))
+                .interpolationMethod(.catmullRom)
+                .foregroundStyle(Theme.accent.opacity(0.15))
+            LineMark(x: .value("Date", p.date),
+                     y: .value("Attendance", p.count))
+                .interpolationMethod(.catmullRom)
+                .foregroundStyle(Theme.accent)
+                .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round))
+            PointMark(x: .value("Date", p.date),
+                      y: .value("Attendance", p.count))
+                .foregroundStyle(Theme.accent)
+                .symbolSize(24)
         }
         .chartXAxis {
-            AxisMarks(values: .automatic(desiredCount: 5)) { _ in
-                AxisGridLine().foregroundStyle(.secondary.opacity(0.25))
+            AxisMarks(values: .automatic(desiredCount: 4)) { _ in
+                AxisGridLine().foregroundStyle(Theme.rule)
                 AxisValueLabel(format: .dateTime.month(.abbreviated).day())
-                    .font(.caption2)
+                    .font(AppFont.caption)
+                    .foregroundStyle(Theme.inkFaint)
             }
         }
         .chartYAxis {
             AxisMarks { _ in
-                AxisGridLine().foregroundStyle(.secondary.opacity(0.2))
-                AxisValueLabel().font(.caption2)
+                AxisGridLine().foregroundStyle(Theme.rule)
+                AxisValueLabel().font(AppFont.caption)
+                    .foregroundStyle(Theme.inkFaint)
             }
         }
-        .animation(.easeInOut(duration: 0.4),
-                   value: points.map(\.count))
+        .animation(AppMotion.gentle, value: points.map(\.count))
     }
 }
-
-// MARK: - Sector / pie chart: events grouped by venue
 
 struct VenueSectorChart: View {
     @EnvironmentObject private var store: DataStore
@@ -277,27 +222,26 @@ struct VenueSectorChart: View {
             .map { Slice(venue: $0.key, count: $0.value.count) }
             .sorted { $0.count > $1.count }
     }
-
     private var totalEvents: Int { slices.reduce(0) { $0 + $1.count } }
 
     private let palette: [Color] = [
         Theme.accent,
-        Color(red: 0.99, green: 0.65, blue: 0.30),
-        Color(red: 0.34, green: 0.55, blue: 0.95),
-        Color(red: 0.55, green: 0.40, blue: 0.92),
-        Color(red: 0.18, green: 0.72, blue: 0.55),
-        Color(red: 0.96, green: 0.40, blue: 0.55),
-        Color(red: 0.42, green: 0.75, blue: 0.86),
+        Theme.accent.opacity(0.72),
+        Theme.accent.opacity(0.54),
+        Theme.accent.opacity(0.40),
+        Theme.accent.opacity(0.28),
+        Theme.accent.opacity(0.20),
+        Theme.accent.opacity(0.14),
     ]
 
     var body: some View {
         Chart(slices) { slice in
             SectorMark(
                 angle: .value("Events", slice.count),
-                innerRadius: .ratio(0.6),
-                angularInset: 3
+                innerRadius: .ratio(0.62),
+                angularInset: 2
             )
-            .cornerRadius(8)
+            .cornerRadius(4)
             .foregroundStyle(by: .value("Venue", slice.venue))
         }
         .chartForegroundStyleScale(range: palette)
@@ -307,19 +251,16 @@ struct VenueSectorChart: View {
                 if let frame = proxy.plotFrame.map({ geo[$0] }) {
                     VStack(spacing: 2) {
                         Text("\(totalEvents)")
-                            .font(.system(size: 36, weight: .bold,
-                                          design: .rounded))
-                            .foregroundStyle(Theme.accent)
+                            .font(AppFont.heroNumber)
+                            .foregroundStyle(Theme.ink)
+                            .monospacedDigit()
                             .contentTransition(.numericText())
-                        Text("events")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
+                        Text("events").overlineStyle()
                     }
                     .position(x: frame.midX, y: frame.midY)
                 }
             }
         }
-        .animation(.spring(response: 0.5, dampingFraction: 0.8),
-                   value: slices.map(\.count))
+        .animation(AppMotion.gentle, value: slices.map(\.count))
     }
 }

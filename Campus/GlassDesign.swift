@@ -2,159 +2,91 @@
 //  GlassDesign.swift
 //  Campus
 //
-//  Liquid Glass design primitives for CampusPulse.
-//  - SceneBackground: deep slate base + animated orange/violet blur blobs
-//    so the .glassEffect material has rich content to refract.
-//  - .glassCard()/.softCard(): material-backed card wrappers with hairline
-//    strokes and graceful pre-iOS-26 fallbacks.
-//  - .glassPrimaryButton()/.glassSecondaryButton(): branded button styles
-//    that swap to the system glass button on iOS 26+.
+//  Surface primitives + motion tokens for the refined UI.
+//  The design leans on paper-like cards with hairline strokes; glass is
+//  reserved for the hero elements that genuinely benefit from depth.
 //
 
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 // MARK: - Motion vocabulary
 
-/// Shared animation curves used across the app so transitions feel
-/// consistent and gently spring-driven.
 enum AppMotion {
-    static let smooth   = Animation.spring(response: 0.50, dampingFraction: 0.90)
-    static let gentle   = Animation.spring(response: 0.42, dampingFraction: 0.88)
-    static let snappy   = Animation.spring(response: 0.34, dampingFraction: 0.82)
-    static let easeSoft = Animation.easeInOut(duration: 0.32)
+    static let smooth   = Animation.spring(response: 0.42, dampingFraction: 0.90)
+    static let gentle   = Animation.spring(response: 0.55, dampingFraction: 0.94)
+    static let snappy   = Animation.spring(response: 0.28, dampingFraction: 0.82)
+    static let easeSoft = Animation.easeInOut(duration: 0.28)
 }
 
 // MARK: - Scene background
 
+/// Warm, single-tone canvas. No animated blobs — the design earns its
+/// premium feel through restraint, not effects.
 struct SceneBackground: View {
-    @Environment(\.colorScheme) private var scheme
-
     var body: some View {
-        ZStack {
-            base
-            blobs
-        }
-        .ignoresSafeArea()
-        .allowsHitTesting(false)
-    }
-
-    private var base: some View {
-        Group {
-            if scheme == .dark {
-                // Brighter, blueish slate instead of near-black so the
-                // glass blur reads as airy rather than heavy.
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.13, green: 0.16, blue: 0.23),
-                        Color(red: 0.19, green: 0.22, blue: 0.30),
-                    ],
-                    startPoint: .top, endPoint: .bottom
-                )
-            } else {
-                // Very soft cream → off-white to give the orange blobs
-                // room to glow without overwhelming the content.
-                LinearGradient(
-                    colors: [
-                        Color(red: 1.00, green: 0.98, blue: 0.96),
-                        Color(red: 0.99, green: 0.96, blue: 0.93),
-                    ],
-                    startPoint: .top, endPoint: .bottom
-                )
-            }
-        }
-    }
-
-    private var blobs: some View {
-        GeometryReader { geo in
-            ZStack {
-                blob(color: Theme.accent,
-                     diameter: geo.size.width * 1.05,
-                     position: CGPoint(x: -geo.size.width * 0.15,
-                                       y: -geo.size.height * 0.05),
-                     opacity: scheme == .dark ? 0.28 : 0.32)
-
-                blob(color: secondaryBlob,
-                     diameter: geo.size.width * 0.95,
-                     position: CGPoint(x: geo.size.width * 1.1,
-                                       y: geo.size.height * 0.55),
-                     opacity: scheme == .dark ? 0.32 : 0.30)
-
-                blob(color: tertiaryBlob,
-                     diameter: geo.size.width * 0.7,
-                     position: CGPoint(x: geo.size.width * 0.5,
-                                       y: geo.size.height * 1.05),
-                     opacity: scheme == .dark ? 0.28 : 0.22)
-            }
-        }
-    }
-
-    private var secondaryBlob: Color {
-        scheme == .dark
-            ? Color(red: 0.62, green: 0.42, blue: 0.92)   // softer lavender
-            : Color(red: 1.00, green: 0.82, blue: 0.56)   // peach
-    }
-
-    private var tertiaryBlob: Color {
-        scheme == .dark
-            ? Color(red: 0.42, green: 0.66, blue: 0.94)   // soft sky
-            : Color(red: 0.99, green: 0.90, blue: 0.78)   // light cream
-    }
-
-    private func blob(color: Color,
-                      diameter: CGFloat,
-                      position: CGPoint,
-                      opacity: Double) -> some View {
-        Circle()
-            .fill(color)
-            .frame(width: diameter, height: diameter)
-            .blur(radius: 120)
-            .opacity(opacity)
-            .position(position)
+        Theme.background
+            .ignoresSafeArea()
     }
 }
 
-// MARK: - Glass card modifier
+// MARK: - Card modifiers
 
 extension View {
-    /// Liquid-glass surface for primary content cards.
+    /// The default paper card. Solid surface, single hairline rule.
     @ViewBuilder
-    func glassCard(tint: Color? = nil, radius: CGFloat = 22) -> some View {
-        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
-        if #available(iOS 26.0, macOS 26.0, visionOS 26.0, *) {
-            let glass: Glass = {
-                if let tint { return .regular.tint(tint) }
-                return .regular
-            }()
-            self
-                .glassEffect(glass, in: shape)
+    func surfaceCard(radius: CGFloat = AppLayout.cardRadius) -> some View {
+        self
+            .background(Theme.surface,
+                        in: RoundedRectangle(cornerRadius: radius,
+                                             style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .stroke(Theme.rule, lineWidth: AppLayout.hairline)
+            )
+    }
+
+    /// Subtle inset — used for rows within a surface card so hierarchy
+    /// stays two-layer, no deeper.
+    @ViewBuilder
+    func insetSurface(radius: CGFloat = AppLayout.controlRadius) -> some View {
+        self
+            .background(Theme.surfaceElevated,
+                        in: RoundedRectangle(cornerRadius: radius,
+                                             style: .continuous))
+    }
+
+    /// Hero card — reserved for the single most important element on a
+    /// screen (dashboard hero, live-count tile). Uses an accent tint so
+    /// the eye lands on it first.
+    @ViewBuilder
+    func heroCard(radius: CGFloat = 24) -> some View {
+        self
+            .background(Theme.accentSoft,
+                        in: RoundedRectangle(cornerRadius: radius,
+                                             style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .stroke(Theme.accent.opacity(0.28),
+                            lineWidth: AppLayout.hairline)
+            )
+    }
+
+    /// Backwards-compatible aliases for older call sites in the codebase.
+    @ViewBuilder
+    func glassCard(tint: Color? = nil, radius: CGFloat = 20) -> some View {
+        if tint != nil {
+            self.heroCard(radius: radius)
         } else {
-            self
-                .background(.ultraThinMaterial, in: shape)
-                .overlay(shape.stroke(Color.white.opacity(0.18), lineWidth: 1))
-                .overlay(
-                    shape.stroke(
-                        LinearGradient(colors: [Color.white.opacity(0.35),
-                                                Color.clear],
-                                       startPoint: .topLeading,
-                                       endPoint: .bottomTrailing),
-                        lineWidth: 1
-                    )
-                    .blendMode(.plusLighter)
-                )
+            self.surfaceCard(radius: radius)
         }
     }
 
-    /// Subtler glass for secondary surfaces (inner rows, tiles).
     @ViewBuilder
-    func softCard(radius: CGFloat = 14) -> some View {
-        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
-        if #available(iOS 26.0, macOS 26.0, visionOS 26.0, *) {
-            self.glassEffect(.clear, in: shape)
-        } else {
-            self
-                .background(.thinMaterial, in: shape)
-                .overlay(shape.stroke(Color.white.opacity(0.12), lineWidth: 1))
-        }
+    func softCard(radius: CGFloat = AppLayout.controlRadius) -> some View {
+        self.insetSurface(radius: radius)
     }
 }
 
@@ -162,63 +94,62 @@ extension View {
 
 struct GlassPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        let shape = Capsule(style: .continuous)
-        let content = configuration.label
-            .font(.headline)
-            .foregroundStyle(.white)
-            .padding(.vertical, 14)
-            .padding(.horizontal, 22)
-            .frame(maxWidth: .infinity)
+        configuration.label
+            .font(AppFont.bodyEmphasis)
+            .foregroundStyle(Color.white)
+            .frame(maxWidth: .infinity, minHeight: 48)
             .background(
-                LinearGradient(colors: [Theme.accent,
-                                        Color(red: 0.88, green: 0.34, blue: 0.06)],
-                               startPoint: .topLeading,
-                               endPoint:   .bottomTrailing),
-                in: shape
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Theme.accent)
             )
-            .overlay(shape.stroke(Color.white.opacity(0.25), lineWidth: 1))
-            .shadow(color: Theme.accent.opacity(0.35),
-                    radius: configuration.isPressed ? 4 : 14,
-                    x: 0, y: configuration.isPressed ? 1 : 7)
-            .scaleEffect(configuration.isPressed ? 0.98 : 1)
-            .animation(.spring(response: 0.25, dampingFraction: 0.7),
-                       value: configuration.isPressed)
-        return content
+            .opacity(configuration.isPressed ? 0.88 : 1)
+            .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .animation(AppMotion.snappy, value: configuration.isPressed)
     }
 }
 
 struct GlassSecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        let shape = Capsule(style: .continuous)
-        return configuration.label
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(Theme.accent)
-            .padding(.vertical, 12)
-            .padding(.horizontal, 18)
-            .frame(maxWidth: .infinity)
-            .glassCard(tint: Theme.accent.opacity(0.18), radius: 28)
-            .overlay(shape.stroke(Theme.accent.opacity(0.35), lineWidth: 1))
-            .scaleEffect(configuration.isPressed ? 0.98 : 1)
-            .animation(.spring(response: 0.25, dampingFraction: 0.7),
-                       value: configuration.isPressed)
+        configuration.label
+            .font(AppFont.bodyEmphasis)
+            .foregroundStyle(Theme.ink)
+            .frame(maxWidth: .infinity, minHeight: 48)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Theme.surface)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Theme.rule, lineWidth: AppLayout.hairline)
+            )
+            .opacity(configuration.isPressed ? 0.88 : 1)
+            .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .animation(AppMotion.snappy, value: configuration.isPressed)
     }
 }
 
 extension ButtonStyle where Self == GlassPrimaryButtonStyle {
     static var glassPrimary: GlassPrimaryButtonStyle { .init() }
 }
-
 extension ButtonStyle where Self == GlassSecondaryButtonStyle {
     static var glassSecondary: GlassSecondaryButtonStyle { .init() }
 }
 
-// MARK: - Tab bar tuning
+// MARK: - Scene wrapper
+
+struct GlassScene<Content: View>: View {
+    @ViewBuilder var content: () -> Content
+    var body: some View {
+        ZStack {
+            SceneBackground()
+            content()
+        }
+    }
+}
+
+// MARK: - Tab bar tuning (kept for call-site compatibility)
 
 extension View {
-    /// Removes the opaque slab under the system tab bar so the scrolling
-    /// glass cards and the SceneBackground blobs blur through it. Items
-    /// keep their own Liquid Glass container on iOS 26, so they stay
-    /// legible.
     @ViewBuilder
     func fluentTabBarBackground() -> some View {
         self
@@ -227,18 +158,13 @@ extension View {
     }
 }
 
-// MARK: - Scene wrapper
+// MARK: - Divider
 
-/// Place this around a screen's content. It mounts the SceneBackground
-/// behind the view and clears any default ScrollView/Form chrome so the
-/// glass material can render against the live background.
-struct GlassScene<Content: View>: View {
-    @ViewBuilder var content: () -> Content
-
+/// Uniform hairline rule used inside cards.
+struct AppRule: View {
     var body: some View {
-        ZStack {
-            SceneBackground()
-            content()
-        }
+        Rectangle()
+            .fill(Theme.rule)
+            .frame(height: AppLayout.hairline)
     }
 }

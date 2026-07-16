@@ -2,9 +2,9 @@
 //  AssignLeadersView.swift
 //  Campus
 //
-//  Admin/staff sheet for managing an event's leader roster.
-//  Each row exposes two controls: a "Main" pill that promotes the
-//  leader to primary contact, and an assign/unassign checkmark.
+//  Refined leader-assignment sheet. Hairline-separated list inside a
+//  single surface card, star + checkmark controls per row, no
+//  duplicated card chrome.
 //
 
 import SwiftUI
@@ -17,32 +17,51 @@ struct AssignLeadersView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                SceneBackground()
-                List {
-                    Section {
-                        ForEach(store.leaders()) { leader in
-                            LeaderAssignmentRow(eventId: eventId,
-                                                leader: leader)
-                                .listRowBackground(Color.clear)
-                        }
-                    } header: {
-                        Text("Tap a name to assign / unassign · tap the star to set the main leader")
-                    } footer: {
-                        Text("Leaders come from the Summer 2026 SAO roster. The main leader is the primary contact for the event; only admins and staff can change assignments.")
+            GlassScene {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: AppLayout.sectionGap) {
+                        header
+                        rosterCard
                     }
+                    .padding(20)
+                    .padding(.bottom, 40)
+                    .contentFrame(max: AppLayout.readingMaxWidth)
                 }
                 .scrollContentBackground(.hidden)
             }
-            .navigationTitle("Assign Leaders")
-            .inlineNavTitle()
+            .navigationTitle("")
             .toolbar {
                 ToolbarItem(placement: .trailingBar) {
                     Button("Done") { dismiss() }
-                        .tint(Theme.accent)
+                        .font(AppFont.bodyEmphasis)
+                        .foregroundStyle(Theme.accent)
                 }
             }
         }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Roster").overlineStyle(Theme.accent)
+            Text("Assign Leaders")
+                .font(AppFont.title)
+                .foregroundStyle(Theme.ink)
+            Text("Tap to assign or unassign. Tap the star to designate the main leader — the primary contact for the event.")
+                .font(AppFont.caption)
+                .foregroundStyle(Theme.inkMuted)
+        }
+    }
+
+    private var rosterCard: some View {
+        VStack(spacing: 0) {
+            let list = store.leaders()
+            ForEach(Array(list.enumerated()), id: \.element.id) { index, leader in
+                LeaderAssignmentRow(eventId: eventId, leader: leader)
+                if index != list.count - 1 { AppRule() }
+            }
+        }
+        .padding(.horizontal, 18)
+        .surfaceCard()
     }
 }
 
@@ -54,94 +73,78 @@ private struct LeaderAssignmentRow: View {
 
     @EnvironmentObject private var store: DataStore
 
-    private var isAssigned: Bool {
-        store.leaderIds(for: eventId).contains(leader.id)
-    }
-
-    private var isMain: Bool {
-        store.isMainLeader(leader.id, for: eventId)
-    }
+    private var isAssigned: Bool { store.leaderIds(for: eventId).contains(leader.id) }
+    private var isMain:     Bool { store.isMainLeader(leader.id, for: eventId) }
 
     var body: some View {
         HStack(spacing: 12) {
-            avatar
+            Circle()
+                .stroke(Theme.rule, lineWidth: AppLayout.hairline)
+                .background(Circle().fill(Theme.fill))
+                .frame(width: 34, height: 34)
+                .overlay(Text(initials).font(AppFont.captionStrong)
+                    .foregroundStyle(Theme.ink))
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(leader.name)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
+                        .font(AppFont.bodyEmphasis)
+                        .foregroundStyle(Theme.ink)
                     if isMain {
-                        Text("MAIN")
-                            .font(.caption2.weight(.bold))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Theme.accent.opacity(0.22), in: Capsule())
-                            .foregroundStyle(Theme.accent)
-                            .transition(.scale.combined(with: .opacity))
+                        Text("MAIN").overlineStyle(Theme.accent)
                     }
                 }
                 Text(leader.email)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(AppFont.caption)
+                    .foregroundStyle(Theme.inkMuted)
                     .lineLimit(1)
             }
 
             Spacer(minLength: 8)
 
             if isAssigned {
-                mainButton
+                Button {
+                    store.setMainLeader(leaderId: leader.id, for: eventId)
+                } label: {
+                    Image(systemName: isMain ? "star.fill" : "star")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(isMain ? Theme.accent : Theme.inkFaint)
+                        .contentTransition(.symbolEffect(.replace))
+                        .frame(width: 32, height: 32)
+                }
+                .buttonStyle(.plain)
+                .disabled(isMain)
+                .accessibilityLabel(isMain
+                                    ? "\(leader.name) is main leader"
+                                    : "Set \(leader.name) as main")
             }
-            assignButton
+
+            Button {
+                if isAssigned {
+                    store.unassign(leaderId: leader.id, from: eventId)
+                } else {
+                    store.assign(leaderId: leader.id, to: eventId)
+                }
+            } label: {
+                Image(systemName: isAssigned ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundStyle(isAssigned ? Theme.accent : Theme.inkFaint)
+                    .contentTransition(.symbolEffect(.replace))
+                    .frame(width: 32, height: 32)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(isAssigned
+                                ? "Unassign \(leader.name)"
+                                : "Assign \(leader.name)")
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 12)
         .contentShape(Rectangle())
         .animation(AppMotion.snappy, value: isAssigned)
         .animation(AppMotion.snappy, value: isMain)
     }
 
-    // MARK: - Controls
-
-    private var avatar: some View {
-        Image(systemName: "person.crop.circle.fill")
-            .font(.title2)
-            .foregroundStyle(Theme.accent)
-    }
-
-    private var mainButton: some View {
-        Button {
-            store.setMainLeader(leaderId: leader.id, for: eventId)
-        } label: {
-            Image(systemName: isMain ? "star.fill" : "star")
-                .font(.title3)
-                .foregroundStyle(isMain ? Theme.accent : Color.secondary)
-                .contentTransition(.symbolEffect(.replace))
-                .frame(width: 32, height: 32)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(isMain
-                            ? "\(leader.name) is the main leader"
-                            : "Set \(leader.name) as main leader")
-        .disabled(isMain)
-    }
-
-    private var assignButton: some View {
-        Button {
-            if isAssigned {
-                store.unassign(leaderId: leader.id, from: eventId)
-            } else {
-                store.assign(leaderId: leader.id, to: eventId)
-            }
-        } label: {
-            Image(systemName: isAssigned ? "checkmark.circle.fill" : "circle")
-                .font(.title2)
-                .foregroundStyle(isAssigned ? Theme.accent : Color.secondary)
-                .contentTransition(.symbolEffect(.replace))
-                .frame(width: 32, height: 32)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(isAssigned
-                            ? "Unassign \(leader.name)"
-                            : "Assign \(leader.name)")
+    private var initials: String {
+        let parts = leader.name.split(separator: " ").prefix(2)
+        return parts.compactMap { $0.first.map(String.init) }.joined().uppercased()
     }
 }

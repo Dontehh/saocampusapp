@@ -2,9 +2,9 @@
 //  QRCodeView.swift
 //  Campus
 //
-//  Generates a CIQRCodeGenerator code that encodes the check-in URL.
-//  Students would scan with their native camera to open the form;
-//  manual entry below mirrors the same submit logic for in-app testing.
+//  Refined check-in sheet. Editorial header, generous whitespace, single
+//  accent card for the QR frame. Manual response import stays as a
+//  simple hairline card at the bottom.
 //
 
 import SwiftUI
@@ -22,15 +22,13 @@ struct QRCodeView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var store: DataStore
 
-    @State private var studentId   = ""
-    @State private var feedback:    FeedbackMessage?
+    @State private var studentId = ""
+    @State private var feedback:  FeedbackMessage?
 
     private let context = CIContext()
     private let filter  = CIFilter.qrCodeGenerator()
 
-    /// The shared SAO Microsoft Forms check-in URL. Every event's QR encodes
-    /// this same link; the form collects the student ID, and each response
-    /// is imported as an attendance record for the currently-open event.
+    /// Shared SAO check-in form. Every event's QR encodes this URL.
     private var checkInURL: String {
         "https://forms.office.com/r/mtM8pndeHf"
     }
@@ -39,22 +37,24 @@ struct QRCodeView: View {
         NavigationStack {
             GlassScene {
                 ScrollView {
-                    VStack(spacing: 22) {
-                        qrImageView
-                        captionBlock
-                        liveCountChip
-                        manualEntryCard
+                    VStack(alignment: .leading, spacing: AppLayout.sectionGap) {
+                        header
+                        qrCard
+                        liveCountCard
+                        importCard
                     }
                     .padding(20)
+                    .padding(.bottom, 40)
+                    .contentFrame(max: AppLayout.readingMaxWidth)
                 }
                 .scrollContentBackground(.hidden)
             }
-            .navigationTitle("Check-In QR")
-            .inlineNavTitle()
+            .navigationTitle("")
             .toolbar {
                 ToolbarItem(placement: .trailingBar) {
                     Button("Done") { dismiss() }
-                        .tint(Theme.accent)
+                        .font(AppFont.bodyEmphasis)
+                        .foregroundStyle(Theme.accent)
                 }
             }
         }
@@ -62,93 +62,114 @@ struct QRCodeView: View {
 
     // MARK: - Pieces
 
-    private var qrImageView: some View {
-        qrSwiftUIImage
-            .interpolation(.none)
-            .resizable()
-            .scaledToFit()
-            .padding(20)
-            .frame(maxWidth: 320, maxHeight: 320)
-            .background(Color.white, in: RoundedRectangle(cornerRadius: 24))
-            .overlay(
-                RoundedRectangle(cornerRadius: 24)
-                    .stroke(Theme.accent.opacity(0.3), lineWidth: 2)
-            )
-            .shadow(color: Theme.accent.opacity(0.15), radius: 18, x: 0, y: 6)
-    }
-
-    private var captionBlock: some View {
-        VStack(spacing: 8) {
-            Text("Students scan to open the SAO check-in form")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Link(destination: URL(string: checkInURL)!) {
-                HStack(spacing: 6) {
-                    Image(systemName: "link")
-                    Text(checkInURL)
-                }
-                .font(.caption.monospaced())
-                .foregroundStyle(Theme.accent)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .padding(.horizontal)
-            }
-            Text("Each form response is imported as the student's ID for this event.")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Check-in").overlineStyle(Theme.accent)
+            Text("Attendance QR")
+                .font(AppFont.title)
+                .foregroundStyle(Theme.ink)
+            Text("Students scan to open the SAO form. Each submission is imported as an attendance record for this event.")
+                .font(AppFont.caption)
+                .foregroundStyle(Theme.inkMuted)
         }
     }
 
-    private var manualEntryCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Import Form Response")
-                .font(.headline)
-            Text("Paste a student ID from a Microsoft Forms submission to add them to this event's attendance.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+    private var qrCard: some View {
+        VStack(spacing: 16) {
+            qrSwiftUIImage
+                .interpolation(.none)
+                .resizable()
+                .scaledToFit()
+                .padding(20)
+                .frame(maxWidth: 300, maxHeight: 300)
+                .background(Color.white,
+                            in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(Theme.rule, lineWidth: AppLayout.hairline)
+                )
+
+            Link(destination: URL(string: checkInURL)!) {
+                HStack(spacing: 6) {
+                    Image(systemName: "link")
+                        .font(.system(size: 11, weight: .medium))
+                    Text(checkInURL)
+                        .font(AppFont.mono)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                .foregroundStyle(Theme.accent)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(24)
+        .surfaceCard()
+    }
+
+    private var liveCountCard: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Live count").overlineStyle(Theme.accent)
+                Text("\(store.attendanceCount(for: eventId))")
+                    .font(AppFont.displayNumber)
+                    .foregroundStyle(Theme.ink)
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+                Text("students checked in")
+                    .font(AppFont.caption)
+                    .foregroundStyle(Theme.inkMuted)
+            }
+            Spacer()
+        }
+        .padding(20)
+        .heroCard()
+        .animation(AppMotion.smooth, value: store.attendanceCount(for: eventId))
+    }
+
+    private var importCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Import response").overlineStyle()
+            Text("Paste a student ID from a submitted form and add them to this event's attendance.")
+                .font(AppFont.caption)
+                .foregroundStyle(Theme.inkMuted)
 
             HStack(spacing: 10) {
                 TextField("Student ID", text: $studentId)
                     .iosAutocap()
                     .autocorrectionDisabled()
-                    .padding(.vertical, 10)
-                    .padding(.horizontal, 12)
-                    .softCard(radius: 12)
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 14)
+                    .background(Theme.fill,
+                                in: RoundedRectangle(cornerRadius: 12,
+                                                     style: .continuous))
                     .submitLabel(.send)
                     .onSubmit(submit)
-
                 Button("Check In", action: submit)
-                    .buttonStyle(.borderedProminent)
-                    .tint(Theme.accent)
+                    .font(AppFont.bodyEmphasis)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(Theme.accent,
+                                in: RoundedRectangle(cornerRadius: 12,
+                                                     style: .continuous))
             }
 
-            if let feedback {
-                Label(feedback.text,
-                      systemImage: feedback.success ? "checkmark.circle.fill" : "xmark.octagon.fill")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(feedback.success ? Color.green : Color.red)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            if let f = feedback {
+                HStack(spacing: 6) {
+                    Image(systemName: f.success ? "checkmark.circle.fill"
+                                                : "xmark.octagon.fill")
+                    Text(f.text)
+                }
+                .font(AppFont.captionStrong)
+                .foregroundStyle(f.success ? Theme.positive : Theme.negative)
+                .transition(.opacity)
             }
         }
         .padding(18)
-        .glassCard(radius: 20)
+        .surfaceCard()
     }
 
-    private var liveCountChip: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "person.3.fill")
-            Text("Live count: \(store.attendanceCount(for: eventId))")
-                .font(.headline)
-        }
-        .foregroundStyle(Theme.accent)
-        .padding(.vertical, 14)
-        .padding(.horizontal, 22)
-        .glassCard(tint: Theme.accent.opacity(0.32), radius: 24)
-    }
-
-    // MARK: - Helpers
+    // MARK: - Logic
 
     private struct FeedbackMessage {
         let text: String

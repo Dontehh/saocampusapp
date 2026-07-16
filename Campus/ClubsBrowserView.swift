@@ -2,9 +2,9 @@
 //  ClubsBrowserView.swift
 //  Campus
 //
-//  Verification screen for ClubsDataManager. Lists every loaded SAO club
-//  grouped by category and shows the most recent semester's board + events
-//  when tapped.
+//  Refined club directory. Masthead, restrained stat strip, hairline
+//  separated rows inside surface cards. Category grouping via overline
+//  section headers instead of colored labels.
 //
 
 import SwiftUI
@@ -13,7 +13,7 @@ struct ClubsBrowserView: View {
     @EnvironmentObject private var manager: ClubsDataManager
     @State private var query = ""
 
-    private var grouped: [(category: ClubCategory, clubs: [SAOClub])] {
+    private var groups: [(category: ClubCategory, clubs: [SAOClub])] {
         let filtered = manager.clubs.filter { club in
             query.isEmpty ||
             club.clubName.lowercased().contains(query.lowercased())
@@ -26,38 +26,25 @@ struct ClubsBrowserView: View {
     var body: some View {
         NavigationStack {
             GlassScene {
-                List {
-                    if !manager.loadErrors.isEmpty {
-                        Section("Errors") {
-                            ForEach(manager.loadErrors, id: \.self) { msg in
-                                Label(msg, systemImage: "exclamationmark.triangle.fill")
-                                    .foregroundStyle(.red)
-                                    .font(.caption)
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: AppLayout.sectionGap) {
+                        masthead
+                        statStrip
+                        if !manager.loadErrors.isEmpty { errorList }
+                        ForEach(groups, id: \.category) { entry in
+                            if !entry.clubs.isEmpty {
+                                categoryBlock(entry.category, entry.clubs)
                             }
                         }
                     }
-
-                    summarySection
-
-                    ForEach(grouped, id: \.category) { entry in
-                        if !entry.clubs.isEmpty {
-                            Section {
-                                ForEach(entry.clubs) { club in
-                                    NavigationLink(value: club) {
-                                        ClubRow(club: club)
-                                    }
-                                }
-                            } header: {
-                                Label(entry.category.rawValue,
-                                      systemImage: entry.category.systemImage)
-                                    .foregroundStyle(Theme.accent)
-                            }
-                        }
-                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                    .padding(.bottom, 48)
+                    .contentFrame()
                 }
                 .scrollContentBackground(.hidden)
             }
-            .navigationTitle("SAO Clubs")
+            .navigationTitle("")
             .searchableBar(text: $query, prompt: "Search clubs")
             .navigationDestination(for: SAOClub.self) { club in
                 ClubDetailView(club: club)
@@ -65,30 +52,71 @@ struct ClubsBrowserView: View {
         }
     }
 
-    private var summarySection: some View {
-        Section {
-            HStack(spacing: 12) {
-                stat("\(manager.clubs.count)", "Clubs")
-                stat("\(manager.allSemesters.count)", "Semesters")
-                stat("\(manager.saoTeam.last?.leaders.count ?? 0)",
-                     "Leaders (latest)")
-            }
+    // MARK: - Pieces
+
+    private var masthead: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("SAO · Directory").overlineStyle(Theme.accent)
+            Text("Clubs")
+                .font(AppFont.display)
+                .foregroundStyle(Theme.ink)
         }
-        .listRowBackground(Color.clear)
+    }
+
+    private var statStrip: some View {
+        HStack(spacing: 12) {
+            stat("\(manager.clubs.count)", "Clubs")
+            stat("\(manager.allSemesters.count)", "Semesters")
+            stat("\(manager.saoTeam.last?.leaders.count ?? 0)", "Leaders")
+        }
     }
 
     private func stat(_ value: String, _ label: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 6) {
             Text(value)
-                .font(.title3.weight(.bold))
-                .foregroundStyle(Theme.accent)
-            Text(label)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .font(AppFont.statNumber)
+                .foregroundStyle(Theme.ink)
+                .monospacedDigit()
+            Text(label).overlineStyle()
         }
+        .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .softCard(radius: 14)
+        .surfaceCard(radius: 16)
+    }
+
+    private var errorList: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Load errors").overlineStyle(Theme.negative)
+            ForEach(manager.loadErrors, id: \.self) { msg in
+                Text(msg)
+                    .font(AppFont.caption)
+                    .foregroundStyle(Theme.negative)
+            }
+        }
+        .padding(16)
+        .surfaceCard()
+    }
+
+    private func categoryBlock(_ category: ClubCategory,
+                               _ clubs: [SAOClub]) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            SectionHeader(category.rawValue.uppercased()) {
+                CountPill(count: clubs.count)
+            }
+            VStack(spacing: 0) {
+                ForEach(Array(clubs.enumerated()), id: \.element.id) { index, club in
+                    NavigationLink(value: club) {
+                        ClubRow(club: club)
+                    }
+                    .buttonStyle(.plain)
+                    if index != clubs.count - 1 {
+                        AppRule()
+                    }
+                }
+            }
+            .padding(.horizontal, 18)
+            .surfaceCard()
+        }
     }
 }
 
@@ -98,28 +126,35 @@ private struct ClubRow: View {
     let club: SAOClub
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(club.clubName)
-                .font(.headline)
-            HStack(spacing: 12) {
-                if let category = club.category {
-                    Label(category.rawValue,
-                          systemImage: category.systemImage)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(club.clubName)
+                    .font(AppFont.bodyEmphasis)
+                    .foregroundStyle(Theme.ink)
+                HStack(spacing: 12) {
+                    if let latest = club.latestSemester {
+                        meta(icon: "calendar", text: latest)
+                    }
+                    meta(icon: "list.bullet",
+                         text: "\(club.totalEventCount) events")
                 }
-                if let latest = club.latestSemester {
-                    Label(latest, systemImage: "calendar")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Label("\(club.totalEventCount) events",
-                      systemImage: "list.bullet")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Theme.inkFaint)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 14)
+        .contentShape(Rectangle())
+    }
+
+    private func meta(icon: String, text: String) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .medium))
+            Text(text).font(AppFont.caption)
+        }
+        .foregroundStyle(Theme.inkMuted)
     }
 }
 
@@ -130,50 +165,142 @@ private struct ClubDetailView: View {
 
     var body: some View {
         GlassScene {
-            List {
-                Section("Current Board (\(club.latestSemester ?? "—"))") {
-                    if club.currentBoard.isEmpty {
-                        Text("No board recorded for this semester.")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(club.currentBoard.keys.sorted(), id: \.self) { role in
-                            LabeledContent(role,
-                                           value: club.currentBoard[role] ?? "—")
-                        }
-                    }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    header
+                    boardCard
+                    currentEventsCard
+                    historyCard
                 }
-
-                Section("Events (\(club.latestSemester ?? "—"))") {
-                    if club.currentEvents.isEmpty {
-                        Text("No events recorded.")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(club.currentEvents, id: \.self) { event in
-                            Text(event)
-                        }
-                    }
-                }
-
-                Section("All Semesters") {
-                    ForEach(club.allSemesters.reversed(), id: \.self) { sem in
-                        DisclosureGroup(sem) {
-                            if let events = club.events[sem], !events.isEmpty {
-                                ForEach(events, id: \.self) { e in
-                                    Text("• \(e)").font(.footnote)
-                                }
-                            } else {
-                                Text("No events recorded.")
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                }
+                .padding(20)
+                .padding(.bottom, 40)
+                .contentFrame(max: AppLayout.readingMaxWidth)
             }
             .scrollContentBackground(.hidden)
         }
         .navigationTitle(club.clubName)
         .inlineNavTitle()
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let category = club.category {
+                Text(category.rawValue).overlineStyle(Theme.accent)
+            }
+            Text(club.clubName)
+                .font(AppFont.title)
+                .foregroundStyle(Theme.ink)
+            if let latest = club.latestSemester {
+                Text("Latest term · \(latest)")
+                    .font(AppFont.caption)
+                    .foregroundStyle(Theme.inkMuted)
+            }
+        }
+    }
+
+    private var boardCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("Current Board").overlineStyle()
+                Spacer()
+                if let latest = club.latestSemester {
+                    Text(latest).font(AppFont.caption).foregroundStyle(Theme.inkFaint)
+                }
+            }
+            if club.currentBoard.isEmpty {
+                Text("No board recorded for this semester.")
+                    .font(AppFont.body)
+                    .foregroundStyle(Theme.inkMuted)
+            } else {
+                VStack(spacing: 0) {
+                    let keys = club.currentBoard.keys.sorted()
+                    ForEach(Array(keys.enumerated()), id: \.element) { index, role in
+                        HStack {
+                            Text(role)
+                                .font(AppFont.caption)
+                                .foregroundStyle(Theme.inkMuted)
+                            Spacer()
+                            Text(club.currentBoard[role] ?? "—")
+                                .font(AppFont.bodyEmphasis)
+                                .foregroundStyle(Theme.ink)
+                        }
+                        .padding(.vertical, 10)
+                        if index != keys.count - 1 { AppRule() }
+                    }
+                }
+            }
+        }
+        .padding(18)
+        .surfaceCard()
+    }
+
+    private var currentEventsCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Current Semester Events").overlineStyle()
+            if club.currentEvents.isEmpty {
+                Text("No events recorded.")
+                    .font(AppFont.body)
+                    .foregroundStyle(Theme.inkMuted)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(club.currentEvents.enumerated()), id: \.offset) { index, event in
+                        HStack(alignment: .top, spacing: 10) {
+                            Text("\(index + 1)".padded(to: 2))
+                                .font(AppFont.mono)
+                                .foregroundStyle(Theme.inkFaint)
+                            Text(event)
+                                .font(AppFont.body)
+                                .foregroundStyle(Theme.ink)
+                            Spacer()
+                        }
+                        .padding(.vertical, 10)
+                        if index != club.currentEvents.count - 1 { AppRule() }
+                    }
+                }
+            }
+        }
+        .padding(18)
+        .surfaceCard()
+    }
+
+    private var historyCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("All Semesters").overlineStyle()
+            VStack(spacing: 0) {
+                let sems = club.allSemesters.reversed()
+                ForEach(Array(sems.enumerated()), id: \.element) { index, sem in
+                    DisclosureGroup(sem) {
+                        if let events = club.events[sem], !events.isEmpty {
+                            VStack(alignment: .leading, spacing: 6) {
+                                ForEach(events, id: \.self) { e in
+                                    Text("• \(e)")
+                                        .font(AppFont.caption)
+                                        .foregroundStyle(Theme.inkMuted)
+                                }
+                            }
+                            .padding(.top, 6)
+                        } else {
+                            Text("No events recorded.")
+                                .font(AppFont.caption)
+                                .foregroundStyle(Theme.inkFaint)
+                                .padding(.top, 4)
+                        }
+                    }
+                    .font(AppFont.bodyEmphasis)
+                    .foregroundStyle(Theme.ink)
+                    .padding(.vertical, 8)
+                    if index != sems.count - 1 { AppRule() }
+                }
+            }
+        }
+        .padding(18)
+        .surfaceCard()
+    }
+}
+
+private extension String {
+    func padded(to width: Int) -> String {
+        String(repeating: "0", count: max(0, width - count)) + self
     }
 }
 

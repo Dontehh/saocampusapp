@@ -2,9 +2,9 @@
 //  AdminEventDetailView.swift
 //  Campus
 //
-//  Read-and-manage screen for admins. Shows full event info, live
-//  attendance, leader debrief notes, lets admins (un)assign leaders,
-//  and allows reopening a completed event back to `ongoing`.
+//  Refined admin/staff event detail. Removes card-in-card nesting, uses
+//  hairline dividers between rows, restrained accent — only the header
+//  and reopen banner carry color.
 //
 
 import SwiftUI
@@ -13,7 +13,7 @@ struct AdminEventDetailView: View {
     let eventId: String
 
     @EnvironmentObject private var store: DataStore
-    @State private var showAssignSheet = false
+    @State private var showAssignSheet   = false
     @State private var showReopenConfirm = false
 
     private var event: CampusEvent? { store.event(by: eventId) }
@@ -33,32 +33,26 @@ struct AdminEventDetailView: View {
     private func content(event: CampusEvent) -> some View {
         GlassScene {
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    headerCard(event)
-                    statusActionsCard(event)
+                VStack(alignment: .leading, spacing: 20) {
+                    header(event)
+                    reopenBanner(event)
+                    infoCard(event)
+                    liveAttendance(event)
                     leadersCard(event)
                     technicalCard(event)
                     if let catering = event.catering {
                         CateringCard(catering: catering)
                     }
-                    attendanceCard(event)
-
-                    if let debrief = store.debrief(for: event.id) {
-                        debriefCard(debrief)
-                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    if let d = store.debrief(for: event.id) {
+                        debriefCard(d)
                     } else if event.status == .completed {
-                        Label("Debrief pending submission.",
-                              systemImage: "hourglass")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .padding(16)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .glassCard(radius: 18)
+                        pendingBanner
                     }
                 }
                 .padding(20)
-                .animation(.spring(response: 0.35, dampingFraction: 0.85),
-                           value: event.status)
+                .padding(.bottom, 40)
+                .contentFrame(max: AppLayout.readingMaxWidth)
+                .animation(AppMotion.smooth, value: event.status)
             }
             .scrollContentBackground(.hidden)
         }
@@ -73,130 +67,151 @@ struct AdminEventDetailView: View {
                 store.reopenEvent(eventId: event.id)
             }
         } message: {
-            Text("This will move the event back to Ongoing. The current debrief is preserved but the leader can submit a new one.")
+            Text("This moves the event back to Ongoing. The leader can resubmit the debrief once complete.")
         }
     }
 
-    // MARK: - Cards
+    // MARK: - Pieces
 
-    private func headerCard(_ event: CampusEvent) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                StatusBadge(status: event.status)
-                Spacer()
-                if let club = store.club(by: event.clubId) {
-                    Text(club.name)
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .softCard(radius: 18)
-                }
+    private func header(_ event: CampusEvent) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let club = store.club(by: event.clubId) {
+                Text(club.name).overlineStyle(Theme.accent)
             }
-            DetailRow(icon: "mappin.and.ellipse", label: "Venue",
-                      value: event.location)
-            DetailRow(icon: "clock", label: "Window",
-                      value: "\(event.startTime.formatted(date: .abbreviated, time: .shortened)) → \(event.endTime.formatted(date: .omitted, time: .shortened))")
+            Text(event.title)
+                .font(AppFont.title)
+                .foregroundStyle(Theme.ink)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 8) {
+                StatusBadge(status: event.status)
+                Text("Window \(event.startTime.formatted(date: .abbreviated, time: .shortened)) → \(event.endTime.formatted(date: .omitted, time: .shortened))")
+                    .font(AppFont.caption)
+                    .foregroundStyle(Theme.inkMuted)
+                    .lineLimit(1)
+            }
         }
-        .padding(20)
-        .glassCard(radius: 24)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder
-    private func statusActionsCard(_ event: CampusEvent) -> some View {
+    private func reopenBanner(_ event: CampusEvent) -> some View {
         if event.status == .completed {
             HStack(spacing: 12) {
-                Image(systemName: "arrow.uturn.backward.circle.fill")
-                    .font(.title2)
+                Image(systemName: "arrow.uturn.backward")
                     .foregroundStyle(Theme.accent)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Event is completed")
-                        .font(.subheadline.weight(.semibold))
+                        .font(AppFont.bodyEmphasis)
+                        .foregroundStyle(Theme.ink)
                     Text("Reopen if more work is still needed.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(AppFont.caption)
+                        .foregroundStyle(Theme.inkMuted)
                 }
                 Spacer()
-                Button {
-                    showReopenConfirm = true
-                } label: {
-                    Label("Reopen", systemImage: "arrow.uturn.backward")
-                        .font(.caption.weight(.semibold))
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Theme.accent)
-                .controlSize(.small)
+                Button("Reopen") { showReopenConfirm = true }
+                    .font(AppFont.captionStrong)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Theme.accent,
+                                in: Capsule(style: .continuous))
             }
             .padding(16)
-            .glassCard(tint: Theme.accent.opacity(0.32), radius: 18)
+            .background(Theme.accentSoft,
+                        in: RoundedRectangle(cornerRadius: AppLayout.cardRadius,
+                                             style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: AppLayout.cardRadius,
+                                 style: .continuous)
+                    .stroke(Theme.accent.opacity(0.25),
+                            lineWidth: AppLayout.hairline)
+            )
         }
     }
 
-    private func leadersCard(_ event: CampusEvent) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Label("Assigned Leaders",
-                      systemImage: "person.badge.shield.checkmark.fill")
-                    .font(.headline)
-                Spacer()
-                Button {
-                    showAssignSheet = true
-                } label: {
-                    Label("Manage", systemImage: "pencil")
-                        .font(.caption.weight(.semibold))
-                }
-                .buttonStyle(.bordered)
-                .tint(Theme.accent)
-            }
+    private func infoCard(_ event: CampusEvent) -> some View {
+        VStack(spacing: 14) {
+            DetailRow(icon: "mappin.and.ellipse",
+                      label: "Venue", value: event.location)
+            AppRule()
+            DetailRow(icon: "clock", label: "Starts",
+                      value: event.startTime.formatted(date: .complete,
+                                                       time: .shortened))
+            AppRule()
+            DetailRow(icon: "clock.badge.checkmark", label: "Ends",
+                      value: event.endTime.formatted(date: .omitted,
+                                                     time: .shortened))
+        }
+        .padding(18)
+        .surfaceCard()
+    }
 
-            let leaders = store.leaders(for: event.id)
+    private func liveAttendance(_ event: CampusEvent) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(event.status == .completed
+                 ? "Final Attendance"
+                 : "Live Attendance")
+                .overlineStyle(Theme.accent)
+            Text("\(store.attendanceCount(for: event.id))")
+                .font(AppFont.displayNumber)
+                .foregroundStyle(Theme.ink)
+                .contentTransition(.numericText())
+                .monospacedDigit()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(20)
+        .heroCard()
+    }
+
+    private func leadersCard(_ event: CampusEvent) -> some View {
+        let leaders = store.leaders(for: event.id)
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text("Assigned Leaders").overlineStyle()
+                Spacer()
+                Button("Manage") { showAssignSheet = true }
+                    .font(AppFont.captionStrong)
+                    .foregroundStyle(Theme.accent)
+            }
             if leaders.isEmpty {
-                Text("No leaders assigned yet. Tap Manage to add one.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                Text("No leaders assigned yet.")
+                    .font(AppFont.body)
+                    .foregroundStyle(Theme.inkMuted)
             } else {
-                VStack(spacing: 8) {
-                    ForEach(leaders) { leader in
+                VStack(spacing: 0) {
+                    ForEach(Array(leaders.enumerated()), id: \.element.id) { index, leader in
                         leaderRow(leader, eventId: event.id)
+                        if index != leaders.count - 1 { AppRule() }
                     }
                 }
             }
         }
-        .padding(20)
-        .glassCard(radius: 24)
+        .padding(18)
+        .surfaceCard()
     }
 
     private func leaderRow(_ leader: AppUser, eventId: String) -> some View {
         let isMain = store.isMainLeader(leader.id, for: eventId)
         return HStack(spacing: 12) {
-            ZStack(alignment: .bottomTrailing) {
-                Image(systemName: "person.crop.circle.fill")
-                    .font(.title3)
-                    .foregroundStyle(Theme.accent)
-                if isMain {
-                    Image(systemName: "star.fill")
-                        .font(.caption2)
-                        .foregroundStyle(.white)
-                        .padding(3)
-                        .background(Theme.accent, in: Circle())
-                }
-            }
+            Circle()
+                .stroke(Theme.rule, lineWidth: AppLayout.hairline)
+                .background(Circle().fill(Theme.fill))
+                .frame(width: 34, height: 34)
+                .overlay(Text(initials(leader.name))
+                    .font(AppFont.captionStrong)
+                    .foregroundStyle(Theme.ink))
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(leader.name)
-                        .font(.subheadline.weight(.semibold))
+                        .font(AppFont.bodyEmphasis)
+                        .foregroundStyle(Theme.ink)
                     if isMain {
-                        Text("MAIN")
-                            .font(.caption2.weight(.bold))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Theme.accent.opacity(0.22), in: Capsule())
-                            .foregroundStyle(Theme.accent)
-                            .transition(.scale.combined(with: .opacity))
+                        Text("MAIN").overlineStyle(Theme.accent)
                     }
                 }
                 Text(leader.email)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(AppFont.caption)
+                    .foregroundStyle(Theme.inkMuted)
                     .lineLimit(1)
             }
             Spacer()
@@ -206,194 +221,141 @@ struct AdminEventDetailView: View {
                 } label: {
                     Image(systemName: "star")
                         .foregroundStyle(Theme.accent)
-                        .font(.title3)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Set \(leader.name) as main leader")
+                .accessibilityLabel("Set \(leader.name) as main")
             }
             Button {
                 store.unassign(leaderId: leader.id, from: eventId)
             } label: {
-                Image(systemName: "minus.circle.fill")
-                    .foregroundStyle(.red.opacity(0.85))
-                    .font(.title3)
+                Image(systemName: "minus.circle")
+                    .foregroundStyle(Theme.negative.opacity(0.85))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Remove \(leader.name)")
         }
-        .padding(14)
-        .softCard(radius: 14)
-        .animation(AppMotion.snappy, value: isMain)
+        .padding(.vertical, 12)
     }
 
     private func technicalCard(_ event: CampusEvent) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("Technical Needs",
-                  systemImage: "wrench.and.screwdriver.fill")
-                .font(.headline)
-            FlowTags(tags: event.technicalNeeds)
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Technical Needs").overlineStyle()
+            if event.technicalNeeds.isEmpty {
+                Text("None requested.")
+                    .font(AppFont.body)
+                    .foregroundStyle(Theme.inkMuted)
+            } else {
+                FlowTags(tags: event.technicalNeeds)
+            }
         }
-        .padding(20)
-        .glassCard(radius: 24)
+        .padding(18)
+        .surfaceCard()
     }
 
-    private func attendanceCard(_ event: CampusEvent) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Live Attendance")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Text("\(store.attendanceCount(for: event.id))")
-                    .font(.system(size: 36, weight: .bold, design: .rounded))
-                    .foregroundStyle(Theme.accent)
-                    .contentTransition(.numericText())
-            }
+    private var pendingBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "hourglass")
+                .foregroundStyle(Theme.warning)
+            Text("Debrief pending submission.")
+                .font(AppFont.captionStrong)
+                .foregroundStyle(Theme.ink)
             Spacer()
-            Image(systemName: "person.3.sequence.fill")
-                .font(.system(size: 38))
-                .foregroundStyle(Theme.accent.opacity(0.35))
         }
-        .padding(22)
-        .glassCard(tint: Theme.accent.opacity(0.32), radius: 26)
+        .padding(14)
+        .surfaceCard()
     }
 
-    // MARK: - Debrief display (full 15-question view)
+    // MARK: - Debrief
 
-    private func debriefCard(_ debrief: EventDebrief) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
+    private func debriefCard(_ d: EventDebrief) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Label("Post-Event Debrief", systemImage: "doc.text.fill")
-                    .font(.headline)
+                Text("Debrief").overlineStyle()
                 Spacer()
-                occurrenceBadge(debrief.occurrenceStatus)
+                Text(d.occurrenceStatus.rawValue)
+                    .font(AppFont.captionStrong)
+                    .foregroundStyle(Theme.accent)
             }
-
-            // Q1-Q4
-            sectionLabel("Event")
-            DetailRow(icon: "tag.fill",
-                      label: "1. Category",
-                      value: debrief.eventCategory.rawValue)
-            DetailRow(icon: "person.3.fill",
-                      label: "2. Club",
-                      value: debrief.clubName)
-            DetailRow(icon: "calendar.badge.checkmark",
-                      label: "3. Event name",
-                      value: debrief.eventName)
-            DetailRow(icon: "calendar",
-                      label: "4. Date",
-                      value: debrief.eventDate
-                        .formatted(.dateTime.month().day().year()))
-
-            // Q5-Q7
-            sectionLabel("Status")
-            DetailRow(icon: debrief.occurrenceStatus.systemImage,
-                      label: "5. Event status",
-                      value: debrief.occurrenceStatus.rawValue)
-            if debrief.occurrenceStatus != .happened {
-                DetailRow(icon: "exclamationmark.bubble",
-                          label: "6. Reason",
-                          value: debrief.statusReason.isEmpty
-                            ? "—" : debrief.statusReason)
+            debriefBlock(title: "Event",
+                         rows: [
+                            ("Category",   d.eventCategory.rawValue),
+                            ("Club",       d.clubName),
+                            ("Name",       d.eventName),
+                            ("Date",       d.eventDate.formatted(.dateTime.month().day().year())),
+                         ])
+            if d.occurrenceStatus != .happened {
+                debriefBlock(title: "Status",
+                             rows: [("Reason", d.statusReason.isEmpty ? "—" : d.statusReason)])
             }
-            if debrief.occurrenceStatus == .postponed,
-               let date = debrief.postponedDate {
-                DetailRow(icon: "calendar.badge.plus",
-                          label: "7. Postponed to",
-                          value: date.formatted(.dateTime.month().day().year()))
+            debriefBlock(title: "Reach",
+                         rows: [
+                            ("Peak Attendees",  "\(d.peakAttendees)"),
+                            ("Mission Aligned", d.relatedToMission ? "Yes" : "No"),
+                         ])
+            if !d.strengths.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Strengths").overlineStyle()
+                    FlowTags(tags: d.strengths)
+                }
             }
-
-            // Q8-Q9
-            sectionLabel("Reach")
-            DetailRow(icon: "person.3.sequence.fill",
-                      label: "8. Peak attendees",
-                      value: "\(debrief.peakAttendees)")
-            DetailRow(icon: "target",
-                      label: "9. Relates to club's mission",
-                      value: debrief.relatedToMission ? "Yes" : "No")
-
-            // Q10
-            if !debrief.strengths.isEmpty {
-                sectionLabel("Strengths")
-                FlowTags(tags: debrief.strengths)
-            }
-
-            // Q11-Q12
-            sectionLabel("Catering")
-            DetailRow(icon: "fork.knife",
-                      label: "11. Catering included",
-                      value: debrief.hadCatering ? "Yes" : "No")
-            if debrief.hadCatering, let onTime = debrief.cateringOnTime {
-                DetailRow(icon: "clock.badge.checkmark",
-                          label: "12. Arrived as scheduled",
-                          value: onTime ? "Yes" : "No")
-            }
-
-            // Q13-Q14
-            sectionLabel("SAO intervention")
-            DetailRow(icon: "exclamationmark.shield.fill",
-                      label: "13. Needed support",
-                      value: debrief.requiredIntervention ? "Yes" : "No")
-            if debrief.requiredIntervention {
-                DetailRow(icon: "text.bubble.fill",
-                          label: "14. How",
-                          value: debrief.interventionDetail.isEmpty
-                            ? "—" : debrief.interventionDetail)
-            }
-
-            // Q15
-            if !debrief.additionalComments
+            debriefBlock(title: "Catering",
+                         rows: [
+                            ("Included",   d.hadCatering ? "Yes" : "No"),
+                            ("On Time",    d.cateringOnTime.map { $0 ? "Yes" : "No" } ?? "—"),
+                         ])
+            debriefBlock(title: "Intervention",
+                         rows: [
+                            ("Needed", d.requiredIntervention ? "Yes" : "No"),
+                            ("Detail", d.requiredIntervention
+                                ? (d.interventionDetail.isEmpty ? "—" : d.interventionDetail)
+                                : "—"),
+                         ])
+            if !d.additionalComments
                 .trimmingCharacters(in: .whitespaces).isEmpty {
-                sectionLabel("Comments")
-                Text(debrief.additionalComments)
-                    .font(.subheadline)
-                    .padding(14)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .softCard(radius: 12)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Comments").overlineStyle()
+                    Text(d.additionalComments)
+                        .font(AppFont.body)
+                        .foregroundStyle(Theme.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
-
-            Divider().padding(.top, 4)
+            AppRule()
             HStack {
-                Image(systemName: "person.crop.rectangle")
-                    .foregroundStyle(.secondary)
-                Text("Submitted by \(store.user(by: debrief.leaderId)?.name ?? "—")")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text("Submitted by \(store.user(by: d.leaderId)?.name ?? "—")")
+                    .font(AppFont.caption)
+                    .foregroundStyle(Theme.inkMuted)
                 Spacer()
-                Text(debrief.submittedAt
-                        .formatted(date: .abbreviated, time: .shortened))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text(d.submittedAt.formatted(date: .abbreviated, time: .shortened))
+                    .font(AppFont.caption)
+                    .foregroundStyle(Theme.inkMuted)
             }
         }
-        .padding(20)
-        .glassCard(radius: 24)
+        .padding(18)
+        .surfaceCard()
     }
 
-    private func sectionLabel(_ text: String) -> some View {
-        Text(text.uppercased())
-            .font(.caption2.weight(.bold))
-            .tracking(0.6)
-            .foregroundStyle(Theme.accent)
-            .padding(.top, 4)
-    }
-
-    private func occurrenceBadge(_ status: DebriefOccurrenceStatus) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: status.systemImage)
-            Text(status.rawValue)
+    private func debriefBlock(title: String, rows: [(String, String)]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title).overlineStyle()
+            VStack(spacing: 8) {
+                ForEach(Array(rows.enumerated()), id: \.offset) { _, entry in
+                    HStack {
+                        Text(entry.0)
+                            .font(AppFont.caption)
+                            .foregroundStyle(Theme.inkMuted)
+                        Spacer()
+                        Text(entry.1)
+                            .font(AppFont.bodyEmphasis)
+                            .foregroundStyle(Theme.ink)
+                    }
+                }
+            }
         }
-        .font(.caption2.weight(.bold))
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        .background(occurrenceColor(status).opacity(0.18), in: Capsule())
-        .foregroundStyle(occurrenceColor(status))
     }
 
-    private func occurrenceColor(_ status: DebriefOccurrenceStatus) -> Color {
-        switch status {
-        case .happened:  return .green
-        case .postponed: return Theme.accent
-        case .cancelled: return .red
-        }
+    private func initials(_ name: String) -> String {
+        let parts = name.split(separator: " ").prefix(2)
+        return parts.compactMap { $0.first.map(String.init) }.joined().uppercased()
     }
 }
