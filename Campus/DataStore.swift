@@ -105,9 +105,20 @@ final class DataStore: ObservableObject {
             let target: EventStatus = shouldBeCompleted ? .completed : .ongoing
             if events[i].status != target {
                 events[i].status = target
+                FirebaseSync.shared.upsertEvent(events[i])
             }
         }
     }
+
+    // MARK: - Replace helpers for FirebaseSync listeners
+
+    /// Snapshot listeners on Firestore call these to reconcile the
+    /// local cache with the remote source of truth. Views observe the
+    /// @Published arrays and re-render automatically.
+    func replaceEvents(with list: [CampusEvent])          { events = list }
+    func replaceAssignments(with list: [EventAssignment]) { assignments = list }
+    func replaceAttendance(with list: [Attendance])       { attendance = list }
+    func replaceDebriefs(with list: [EventDebrief])       { debriefs = list }
 
     private func startAutoCompletionTimer() {
         autoTask?.cancel()
@@ -503,12 +514,12 @@ final class DataStore: ObservableObject {
             $0.studentId.caseInsensitiveCompare(trimmed) == .orderedSame
         }
         guard !exists else { return false }
-        attendance.append(
-            Attendance(id: UUID().uuidString,
-                       eventId: eventId,
-                       studentId: trimmed,
-                       scannedAt: Date())
-        )
+        let record = Attendance(id: UUID().uuidString,
+                                eventId: eventId,
+                                studentId: trimmed,
+                                scannedAt: Date())
+        attendance.append(record)
+        FirebaseSync.shared.upsertAttendance(record)
         return true
     }
 
@@ -547,12 +558,13 @@ final class DataStore: ObservableObject {
             catering: catering
         )
         events.insert(event, at: 0)
+        FirebaseSync.shared.upsertEvent(event)
         if let leaderId, !leaderId.isEmpty {
-            assignments.append(
-                EventAssignment(eventId: newId,
-                                leaderId: leaderId,
-                                isMain: true)
-            )
+            let firstAssignment = EventAssignment(eventId: newId,
+                                                  leaderId: leaderId,
+                                                  isMain: true)
+            assignments.append(firstAssignment)
+            FirebaseSync.shared.upsertAssignment(firstAssignment)
             notifyAssignment(leaderId: leaderId, eventId: newId)
         }
         return newId
@@ -572,11 +584,15 @@ final class DataStore: ObservableObject {
         if becomeMain && hasMain {
             demoteMain(for: eventId)
         }
-        assignments.append(
-            EventAssignment(eventId: eventId,
-                            leaderId: leaderId,
-                            isMain: becomeMain)
-        )
+        let newAssignment = EventAssignment(eventId: eventId,
+                                            leaderId: leaderId,
+                                            isMain: becomeMain)
+        assignments.append(newAssignment)
+        FirebaseSync.shared.upsertAssignment(newAssignment)
+        // If demoteMain fired above, propagate those flips too.
+        for a in assignments where a.eventId == eventId && a.leaderId != leaderId {
+            FirebaseSync.shared.upsertAssignment(a)
+        }
         notifyAssignment(leaderId: leaderId, eventId: eventId)
     }
 
@@ -600,6 +616,7 @@ final class DataStore: ObservableObject {
         }) else { return }
         for i in assignments.indices where assignments[i].eventId == eventId {
             assignments[i].isMain = (assignments[i].leaderId == leaderId)
+            FirebaseSync.shared.upsertAssignment(assignments[i])
         }
     }
 
@@ -607,12 +624,16 @@ final class DataStore: ObservableObject {
         let wasMain = assignments.contains {
             $0.eventId == eventId && $0.leaderId == leaderId && $0.isMain
         }
+        let removedId = EventAssignment(eventId: eventId,
+                                        leaderId: leaderId).id
         assignments.removeAll {
             $0.eventId == eventId && $0.leaderId == leaderId
         }
+        FirebaseSync.shared.removeAssignment(id: removedId)
         if wasMain,
            let idx = assignments.firstIndex(where: { $0.eventId == eventId }) {
             assignments[idx].isMain = true
+            FirebaseSync.shared.upsertAssignment(assignments[idx])
         }
     }
 
@@ -626,6 +647,7 @@ final class DataStore: ObservableObject {
     func submitDebrief(_ debrief: EventDebrief) {
         debriefs.removeAll { $0.eventId == debrief.eventId }
         debriefs.append(debrief)
+        FirebaseSync.shared.upsertDebrief(debrief)
         // Don't force completion here — let the auto-rule decide. The
         // event only flips to `.completed` once endTime has actually
         // elapsed, so an early-submitted debrief is preserved but the
@@ -639,6 +661,7 @@ final class DataStore: ObservableObject {
     /// moment both conditions are satisfied again.
     func reopenEvent(eventId: String) {
         debriefs.removeAll { $0.eventId == eventId }
+        FirebaseSync.shared.removeDebrief(id: eventId)
         refreshAutoCompletion()
     }
 }

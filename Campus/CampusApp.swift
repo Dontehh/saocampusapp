@@ -13,6 +13,8 @@ import UIKit
 @main
 struct CampusApp: App {
 
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
     @StateObject private var clubsManager:  ClubsDataManager
     @StateObject private var dataStore:     DataStore
     @StateObject private var auth:          AuthService
@@ -42,11 +44,22 @@ struct CampusApp: App {
                 .tint(Theme.accent)
                 .task {
                     await NotificationService.shared.requestAuthorizationIfNeeded()
+                    // Firebase snapshot listeners start once, after
+                    // AppDelegate has finished configuring the SDK.
+                    FirebaseSync.shared.start(dataStore: dataStore)
                 }
-                // Deep-link entry point. QRs encode
+                // Cross-device: when a leader signs in, subscribe the
+                // FCM topic named `user_<userId>` so the Cloud Function
+                // can push assignments straight to their device.
+                .onReceive(NotificationCenter.default.publisher(
+                    for: .fcmTokenUpdated)) { _ in
+                    resubscribeCurrentUser()
+                }
+                .onChange(of: auth.currentUser?.id) { _, _ in
+                    resubscribeCurrentUser()
+                }
+                // Deep-link entry point:
                 //   campuspulse://checkin?event=<eventId>
-                // Any scanning device with the app installed will land
-                // here and get the check-in prompt.
                 .onOpenURL { url in
                     handleIncoming(url: url)
                 }
@@ -62,6 +75,8 @@ struct CampusApp: App {
         }
     }
 
+    // MARK: - Helpers
+
     private var pendingCheckInBinding: Binding<Bool> {
         Binding(
             get: { pendingCheckIn.eventId != nil },
@@ -71,8 +86,6 @@ struct CampusApp: App {
 
     private func handleIncoming(url: URL) {
         guard url.scheme?.lowercased() == "campuspulse" else { return }
-        // "campuspulse://checkin?event=e-123" → host = "checkin",
-        //   event = "e-123"
         let comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
         let host  = (url.host ?? comps?.host ?? "").lowercased()
         guard host == "checkin" else { return }
@@ -83,6 +96,15 @@ struct CampusApp: App {
               !eventId.isEmpty
         else { return }
         pendingCheckIn.begin(eventId: eventId)
+    }
+
+    /// (Re)subscribe the current signed-in user to their per-user FCM
+    /// topic so the Cloud Function can target pushes at them.
+    private func resubscribeCurrentUser() {
+        #if canImport(FirebaseMessaging)
+        guard let userId = auth.currentUser?.id else { return }
+        Messaging.messaging().subscribe(toTopic: "user_\(userId)") { _ in }
+        #endif
     }
 
     private static func configureTabBarAppearance() {
@@ -97,3 +119,7 @@ struct CampusApp: App {
         #endif
     }
 }
+
+#if canImport(FirebaseMessaging)
+import FirebaseMessaging
+#endif
