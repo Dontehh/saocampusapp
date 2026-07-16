@@ -15,6 +15,9 @@ struct AdminEventDetailView: View {
     @EnvironmentObject private var store: DataStore
     @State private var showAssignSheet   = false
     @State private var showReopenConfirm = false
+    @State private var showQR            = false
+    @State private var showDebrief       = false
+    @State private var lastSimulated:    String?
 
     private var event: CampusEvent? { store.event(by: eventId) }
 
@@ -38,6 +41,9 @@ struct AdminEventDetailView: View {
                     reopenBanner(event)
                     infoCard(event)
                     liveAttendance(event)
+                    if event.status == .ongoing {
+                        runActions(event)
+                    }
                     leadersCard(event)
                     technicalCard(event)
                     if let catering = event.catering {
@@ -60,6 +66,16 @@ struct AdminEventDetailView: View {
         .inlineNavTitle()
         .sheet(isPresented: $showAssignSheet) {
             AssignLeadersView(eventId: event.id)
+        }
+        .sheet(isPresented: $showQR) {
+            QRCodeView(eventId: event.id)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showDebrief) {
+            DebriefFormView(eventId: event.id)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
         .alert("Reopen event?", isPresented: $showReopenConfirm) {
             Button("Cancel", role: .cancel) {}
@@ -157,10 +173,52 @@ struct AdminEventDetailView: View {
                 .foregroundStyle(Theme.ink)
                 .contentTransition(.numericText())
                 .monospacedDigit()
+            if let last = lastSimulated {
+                Text("Last check-in · \(last)")
+                    .font(AppFont.caption)
+                    .foregroundStyle(Theme.inkMuted)
+                    .transition(.opacity)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(20)
         .heroCard()
+        .animation(AppMotion.smooth, value: store.attendanceCount(for: event.id))
+        .animation(AppMotion.smooth, value: lastSimulated)
+    }
+
+    /// Actions available to admins/staff running an event — the same
+    /// buttons a leader gets. Only visible while the event is ongoing.
+    private func runActions(_ event: CampusEvent) -> some View {
+        VStack(spacing: 10) {
+            Button {
+                showQR = true
+            } label: {
+                Label("Generate Check-In QR", systemImage: "qrcode")
+            }
+            .buttonStyle(.glassPrimary)
+
+            HStack(spacing: 10) {
+                Button {
+                    let id = store.simulateScan(eventId: event.id)
+                    if !id.isEmpty {
+                        withAnimation(AppMotion.smooth) {
+                            lastSimulated = id
+                        }
+                    }
+                } label: {
+                    Label("Simulate scan", systemImage: "wand.and.stars")
+                }
+                .buttonStyle(.glassSecondary)
+
+                Button {
+                    showDebrief = true
+                } label: {
+                    Label("Complete", systemImage: "checkmark.seal")
+                }
+                .buttonStyle(.glassSecondary)
+            }
+        }
     }
 
     private func leadersCard(_ event: CampusEvent) -> some View {

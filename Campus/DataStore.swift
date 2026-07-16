@@ -449,6 +449,13 @@ final class DataStore: ObservableObject {
 
     func leaders() -> [AppUser] { users.filter { $0.role == .leader } }
 
+    /// Everyone that can be assigned to run an event: admins + leaders.
+    /// Admins are included so they can also participate in an event and
+    /// take attendance the same way a leader would.
+    func assignableStaff() -> [AppUser] {
+        users.filter { $0.role == .admin || $0.role == .leader }
+    }
+
     /// All leaders assigned to an event, main first.
     func leaders(for eventId: String) -> [AppUser] {
         let rows = assignmentIndex[eventId] ?? []
@@ -546,6 +553,7 @@ final class DataStore: ObservableObject {
                                 leaderId: leaderId,
                                 isMain: true)
             )
+            notifyAssignment(leaderId: leaderId, eventId: newId)
         }
         return newId
     }
@@ -568,6 +576,19 @@ final class DataStore: ObservableObject {
             EventAssignment(eventId: eventId,
                             leaderId: leaderId,
                             isMain: becomeMain)
+        )
+        notifyAssignment(leaderId: leaderId, eventId: eventId)
+    }
+
+    /// Fire a local notification announcing the new assignment.
+    private func notifyAssignment(leaderId: String, eventId: String) {
+        guard let user  = userIndex[leaderId],
+              let event = eventIndex[eventId]
+        else { return }
+        NotificationService.shared.notifyAssignment(
+            leaderName: user.name,
+            eventTitle: event.title,
+            eventDate:  event.startTime
         )
     }
 

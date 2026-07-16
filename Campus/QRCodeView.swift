@@ -28,9 +28,10 @@ struct QRCodeView: View {
     private let context = CIContext()
     private let filter  = CIFilter.qrCodeGenerator()
 
-    /// Shared SAO check-in form. Every event's QR encodes this URL.
+    /// Deep-link URL scanned students see. If CampusPulse is installed,
+    /// iOS opens the app straight to the check-in prompt for this event.
     private var checkInURL: String {
-        "https://forms.office.com/r/mtM8pndeHf"
+        "campuspulse://checkin?event=\(eventId)"
     }
 
     var body: some View {

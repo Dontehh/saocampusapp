@@ -249,11 +249,11 @@ struct CreateEventView: View {
 
     private var leaderSection: some View {
         Section {
-            if store.leaders().isEmpty {
-                Text("No leaders on the roster yet.")
+            if store.assignableStaff().isEmpty {
+                Text("No leaders or admins on the roster yet.")
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(store.leaders()) { leader in
+                ForEach(store.assignableStaff()) { leader in
                     leaderPickerRow(leader)
                 }
             }

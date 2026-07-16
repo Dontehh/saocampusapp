@@ -54,9 +54,9 @@ struct AssignLeadersView: View {
 
     private var rosterCard: some View {
         VStack(spacing: 0) {
-            let list = store.leaders()
-            ForEach(Array(list.enumerated()), id: \.element.id) { index, leader in
-                LeaderAssignmentRow(eventId: eventId, leader: leader)
+            let list = store.assignableStaff()
+            ForEach(Array(list.enumerated()), id: \.element.id) { index, member in
+                LeaderAssignmentRow(eventId: eventId, leader: member)
                 if index != list.count - 1 { AppRule() }
             }
         }

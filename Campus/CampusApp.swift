@@ -13,12 +13,11 @@ import UIKit
 @main
 struct CampusApp: App {
 
-    // ClubsDataManager owns the JSON-decoded source of truth.
-    // DataStore consumes it to seed users/clubs/events/etc.
-    @StateObject private var clubsManager: ClubsDataManager
-    @StateObject private var dataStore:    DataStore
-    @StateObject private var auth:         AuthService
-    @StateObject private var settings:     AppSettings
+    @StateObject private var clubsManager:  ClubsDataManager
+    @StateObject private var dataStore:     DataStore
+    @StateObject private var auth:          AuthService
+    @StateObject private var settings:      AppSettings
+    @StateObject private var pendingCheckIn = PendingCheckIn()
 
     init() {
         let manager = ClubsDataManager()
@@ -31,11 +30,61 @@ struct CampusApp: App {
         Self.configureTabBarAppearance()
     }
 
-    /// The default UITabBar chrome renders a solid grey slab that
-    /// occludes the SceneBackground on iOS. This wipes the resting AND
-    /// scroll-edge appearances so the bar is fully transparent — the
-    /// individual tab items keep their own Liquid Glass containers, and
-    /// scrolling content + orange blobs refract cleanly under them.
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .environmentObject(clubsManager)
+                .environmentObject(dataStore)
+                .environmentObject(auth)
+                .environmentObject(settings)
+                .environmentObject(pendingCheckIn)
+                .preferredColorScheme(settings.appearance.colorScheme)
+                .tint(Theme.accent)
+                .task {
+                    await NotificationService.shared.requestAuthorizationIfNeeded()
+                }
+                // Deep-link entry point. QRs encode
+                //   campuspulse://checkin?event=<eventId>
+                // Any scanning device with the app installed will land
+                // here and get the check-in prompt.
+                .onOpenURL { url in
+                    handleIncoming(url: url)
+                }
+                .sheet(isPresented: pendingCheckInBinding) {
+                    if let id = pendingCheckIn.eventId {
+                        CheckInPromptView(eventId: id)
+                            .environmentObject(dataStore)
+                            .environmentObject(auth)
+                            .presentationDetents([.medium, .large])
+                            .presentationDragIndicator(.visible)
+                    }
+                }
+        }
+    }
+
+    private var pendingCheckInBinding: Binding<Bool> {
+        Binding(
+            get: { pendingCheckIn.eventId != nil },
+            set: { if !$0 { pendingCheckIn.clear() } }
+        )
+    }
+
+    private func handleIncoming(url: URL) {
+        guard url.scheme?.lowercased() == "campuspulse" else { return }
+        // "campuspulse://checkin?event=e-123" → host = "checkin",
+        //   event = "e-123"
+        let comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        let host  = (url.host ?? comps?.host ?? "").lowercased()
+        guard host == "checkin" else { return }
+        guard let eventId = comps?
+                .queryItems?
+                .first(where: { $0.name == "event" })?
+                .value,
+              !eventId.isEmpty
+        else { return }
+        pendingCheckIn.begin(eventId: eventId)
+    }
+
     private static func configureTabBarAppearance() {
         #if canImport(UIKit)
         let appearance = UITabBarAppearance()
@@ -46,17 +95,5 @@ struct CampusApp: App {
         UITabBar.appearance().standardAppearance   = appearance
         UITabBar.appearance().scrollEdgeAppearance = appearance
         #endif
-    }
-
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
-                .environmentObject(clubsManager)
-                .environmentObject(dataStore)
-                .environmentObject(auth)
-                .environmentObject(settings)
-                .preferredColorScheme(settings.appearance.colorScheme)
-                .tint(Theme.accent)
-        }
     }
 }
